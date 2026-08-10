@@ -21,7 +21,7 @@ async function main() {
         log(`   - Created Driver: ${driver.full_name}`);
 
         // 2. Create User
-        const passwordHash = await bcrypt.hash('driver123', 10);
+        const passwordHash = await bcrypt.hash('123456', 10);
         const user = await prisma.user.create({
             data: {
                 username: 'driver_test',

@@ -36,9 +36,9 @@ async function main() {
     // ============================================
     // Users
     // ============================================
-    const adminHash = await bcrypt.hash('admin123', 10);
-    const execHash = await bcrypt.hash('exec123', 10);
-    const driverHash = await bcrypt.hash('driver123', 10);
+    const adminHash = await bcrypt.hash('123456', 10);
+    const execHash = await bcrypt.hash('123456', 10);
+    const driverHash = await bcrypt.hash('123456', 10);
 
     await prisma.user.upsert({
         where: { username: 'admin' }, update: {},
@@ -155,9 +155,9 @@ async function main() {
 
     console.log('\n🎉 Seed completed successfully!\n');
     console.log('📋 Demo Login Accounts:');
-    console.log('   Admin   : username=admin   password=admin123');
-    console.log('   Executive: username=exec    password=exec123');
-    console.log('   Driver  : username=driver  password=driver123');
+    console.log('   Admin   : username=admin   password=123456');
+    console.log('   Executive: username=exec    password=123456');
+    console.log('   Driver  : username=driver  password=123456');
 }
 
 main()

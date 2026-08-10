@@ -23,9 +23,9 @@ async function main() {
     });
 
     // Create Users
-    const adminPass = await bcrypt.hash('admin123', 10);
-    const execPass = await bcrypt.hash('exec123', 10);
-    const driverPass = await bcrypt.hash('driver123', 10);
+    const adminPass = await bcrypt.hash('123456', 10);
+    const execPass = await bcrypt.hash('123456', 10);
+    const driverPass = await bcrypt.hash('123456', 10);
 
     const admin = await prisma.user.upsert({
         where: { username: 'admin' },
