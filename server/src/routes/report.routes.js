@@ -1,0 +1,10 @@
+const express = require('express');
+const router = express.Router();
+const c = require('../controllers/report.controller');
+const { authMiddleware, requireRole } = require('../middleware/auth.middleware');
+router.use(authMiddleware);
+router.get('/dashboard', requireRole('ADMIN'), c.adminDashboard);
+router.get('/executive', requireRole('EXECUTIVE', 'ADMIN'), c.executiveDashboard);
+router.get('/expense', requireRole('EXECUTIVE', 'ADMIN'), c.expenseReport);
+router.get('/approvals', requireRole('EXECUTIVE', 'ADMIN'), c.pendingApprovals);
+module.exports = router;

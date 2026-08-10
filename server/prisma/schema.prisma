@@ -1,0 +1,203 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================
+// ประเภทยานพาหนะ
+// =============================================
+model VehicleType {
+  type_id                 Int       @id @default(autoincrement())
+  type_name               String    @db.VarChar(100)
+  oil_change_interval_km  Int       @default(10000)
+  tire_change_interval_km Int       @default(50000)
+  vehicles                Vehicle[]
+
+  @@map("vehicle_types")
+}
+
+// =============================================
+// ผู้ขับรถ (Driver)
+// =============================================
+model Driver {
+  driver_id   Int             @id @default(autoincrement())
+  full_name   String          @db.VarChar(200)
+  phone       String          @db.VarChar(20)
+  is_active   Boolean         @default(true)
+  vehicles    Vehicle[]
+  userAccount User?
+  mileageLogs MileageLog[]    @relation("RecordedBy")
+  repairs     RepairRequest[]
+
+  @@map("drivers")
+}
+
+// =============================================
+// ผู้ใช้งานระบบ (User)
+// =============================================
+model User {
+  user_id       Int       @id @default(autoincrement())
+  username      String    @unique @db.VarChar(100)
+  password_hash String    @db.VarChar(255)
+  role          UserRole  @default(DRIVER)
+  driver        Driver?   @relation(fields: [driver_id], references: [driver_id])
+  driver_id     Int?      @unique
+  full_name     String?   @db.VarChar(200)
+  email         String?   @db.VarChar(200)
+  is_active     Boolean   @default(true)
+  last_login    DateTime?
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  DRIVER
+  EXECUTIVE
+}
+
+// =============================================
+// ยานพาหนะ (Vehicle)
+// =============================================
+model Vehicle {
+  vehicle_id              Int                @id @default(autoincrement())
+  license_plate           String             @unique @db.VarChar(20)
+  vehicleType             VehicleType        @relation(fields: [type_id], references: [type_id])
+  type_id                 Int
+  driver                  Driver?            @relation(fields: [driver_id], references: [driver_id])
+  driver_id               Int?
+  brand                   String?            @db.VarChar(100)
+  model                   String?            @db.VarChar(100)
+  year                    Int?
+  color                   String?            @db.VarChar(50)
+  status                  VehicleStatus      @default(READY)
+  oil_change_interval_km  Int?
+  tire_change_interval_km Int?
+  created_at              DateTime           @default(now())
+  mileageLogs             MileageLog[]
+  repairs                 RepairRequest[]
+  alerts                  MaintenanceAlert[]
+
+  @@map("vehicles")
+}
+
+enum VehicleStatus {
+  READY
+  IN_REPAIR
+}
+
+// =============================================
+// บันทึกระยะทาง (MileageLog)
+// =============================================
+model MileageLog {
+  mileage_id    Int      @id @default(autoincrement())
+  vehicle       Vehicle  @relation(fields: [vehicle_id], references: [vehicle_id])
+  vehicle_id    Int
+  record_month  DateTime @db.Date
+  mileage_start Int
+  mileage_end   Int
+  distance_km   Int?
+  recordedBy    Driver   @relation("RecordedBy", fields: [recorded_by], references: [driver_id])
+  recorded_by   Int
+
+  @@map("mileage_logs")
+}
+
+// =============================================
+// อู่ซ่อมรถ (Garage)
+// =============================================
+model Garage {
+  garage_id      Int                    @id @default(autoincrement())
+  garage_name    String                 @db.VarChar(200)
+  specialization GarageSpecialization[] @default([GENERAL])
+  phone          String?                @db.VarChar(20)
+  address        String?                @db.VarChar(200)
+  sub_district   String?                @db.VarChar(100)
+  district       String?                @db.VarChar(100)
+  province       String?                @db.VarChar(100)
+  postal_code    String?                @db.VarChar(10)
+  is_active      Boolean                @default(true)
+  repairs        RepairRequest[]
+
+  @@map("garages")
+}
+
+enum GarageSpecialization {
+  GENERAL
+  ENGINE
+  ELECTRICAL
+  SUSPENSION
+  BODY_PAINT
+  TIRES
+}
+
+// =============================================
+// คำร้องซ่อม (RepairRequest)
+// =============================================
+model RepairRequest {
+  request_id        Int          @id @default(autoincrement())
+  vehicle           Vehicle      @relation(fields: [vehicle_id], references: [vehicle_id])
+  vehicle_id        Int
+  driver            Driver       @relation(fields: [driver_id], references: [driver_id])
+  driver_id         Int
+  request_date      DateTime     @default(now())
+  issue_description String       @db.Text
+  mileage_at_repair Int?
+  repair_type       RepairType   @default(GENERAL)
+  status            RepairStatus @default(PENDING)
+  garage            Garage?      @relation(fields: [garage_id], references: [garage_id])
+  garage_id         Int?
+  repair_start_date DateTime?    @db.Date
+  repair_end_date   DateTime?    @db.Date
+  repair_detail     String?      @db.Text
+  receipt_image     String?      @db.VarChar(500)
+  total_cost        Decimal?     @db.Decimal(10, 2)
+  note              String?      @db.Text
+  created_at        DateTime     @default(now())
+
+  @@map("repair_requests")
+}
+
+enum RepairType {
+  GENERAL
+  EMERGENCY
+  MAINTENANCE
+}
+
+enum RepairStatus {
+  PENDING
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+// =============================================
+// การแจ้งเตือนบำรุงรักษา (MaintenanceAlert)
+// =============================================
+model MaintenanceAlert {
+  alert_id             Int       @id @default(autoincrement())
+  vehicle              Vehicle   @relation(fields: [vehicle_id], references: [vehicle_id])
+  vehicle_id           Int
+  alert_type           AlertType
+  last_service_mileage Int
+  next_service_mileage Int
+  is_resolved          Boolean   @default(false)
+
+  @@map("maintenance_alerts")
+}
+
+enum AlertType {
+  OIL_CHANGE
+  TIRE_CHANGE
+  INSPECTION
+  OTHER
+}
