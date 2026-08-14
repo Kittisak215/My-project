@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search, Pencil, Trash2, X } from 'lucide-react';
+import { Plus, Search, X } from 'lucide-react';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
 import { useForm } from 'react-hook-form';
@@ -142,14 +142,14 @@ export default function VehiclesPage() {
                                 <p className="text-xs text-slate-400">สี{v.color || '-'} / ปี {v.year || '-'}</p>
                                 <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-500">
                                     <span>👤 {v.driver?.full_name || 'ไม่ระบุ'}</span>
-                                    <span>🛢️ {v.oil_change_interval_km?.toLocaleString() || '-'} กม.</span>
-                                    <span>🛞 {v.tire_change_interval_km?.toLocaleString() || '-'} กม.</span>
+                                    <span>น้ำมัน: {v.oil_change_interval_km?.toLocaleString() || '-'} กม.</span>
+                                    <span>ยาง: {v.tire_change_interval_km?.toLocaleString() || '-'} กม.</span>
                                     <span className="font-semibold text-slate-700">📍 {(v.current_mileage || 0).toLocaleString()} กม.</span>
                                 </div>
                             </div>
                             <div className="flex items-center gap-1 ml-2 shrink-0">
-                                <button onClick={() => openEdit(v)} className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg"><Pencil size={15} /></button>
-                                <button onClick={() => handleDelete(v.vehicle_id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={15} /></button>
+                                <button onClick={() => openEdit(v)} className="px-3 py-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200">แก้ไข</button>
+                                <button onClick={() => handleDelete(v.vehicle_id)} className="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200">ลบ</button>
                             </div>
                         </div>
                     </div>
@@ -162,15 +162,15 @@ export default function VehiclesPage() {
                     <table className="w-full text-sm text-left whitespace-nowrap">
                         <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
                             <tr>
-                                <th className="px-6 py-4 font-semibold text-center">รหัส</th>
-                                <th className="px-6 py-4 font-semibold">ป้ายทะเบียน</th>
-                                <th className="px-6 py-4 font-semibold">ประเภท</th>
-                                <th className="px-6 py-4 font-semibold">ยี่ห้อ / รุ่น</th>
-                                <th className="px-6 py-4 font-semibold">ผู้รับผิดชอบ</th>
-                                <th className="px-6 py-4 font-semibold text-right">รอบเครื่อง/ยาง</th>
-                                <th className="px-6 py-4 font-semibold text-right">เลขไมล์ปัจจุบัน</th>
-                                <th className="px-6 py-4 font-semibold text-center">สถานะ</th>
-                                <th className="px-6 py-4 font-semibold text-center">จัดการ</th>
+                                <th className="px-4 py-3 font-semibold text-center">รหัส</th>
+                                <th className="px-4 py-3 font-semibold">ป้ายทะเบียน</th>
+                                <th className="px-4 py-3 font-semibold">ประเภท</th>
+                                <th className="px-4 py-3 font-semibold">ยี่ห้อ / รุ่น</th>
+                                <th className="px-4 py-3 font-semibold">ผู้รับผิดชอบ</th>
+                                <th className="px-4 py-3 font-semibold text-right">รอบเครื่อง/ยาง</th>
+                                <th className="px-4 py-3 font-semibold text-right">เลขไมล์ปัจจุบัน</th>
+                                <th className="px-4 py-3 font-semibold text-center">สถานะ</th>
+                                <th className="px-4 py-3 font-semibold text-center">จัดการ</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -178,24 +178,24 @@ export default function VehiclesPage() {
                             {!loading && vehicles.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate-400">ไม่พบข้อมูล</td></tr>}
                             {vehicles.map((v) => (
                                 <tr key={v.vehicle_id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-4 text-center text-slate-500">#{v.vehicle_id}</td>
-                                    <td className="px-6 py-4 font-semibold text-slate-800">{v.license_plate}</td>
-                                    <td className="px-6 py-4 text-slate-600">{v.vehicleType?.type_name || 'ไม่ระบุ'}</td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-4 py-3 text-center text-slate-500">#{v.vehicle_id}</td>
+                                    <td className="px-4 py-3 font-semibold text-slate-800">{v.license_plate}</td>
+                                    <td className="px-4 py-3 text-slate-600">{v.vehicleType?.type_name || 'ไม่ระบุ'}</td>
+                                    <td className="px-4 py-3">
                                         <div className="text-slate-800">{v.brand} {v.model}</div>
                                         <div className="text-xs text-slate-500">สี{v.color || '-'} / ปี {v.year || '-'}</div>
                                     </td>
-                                    <td className="px-6 py-4 text-slate-600">{v.driver?.full_name || '-'}</td>
-                                    <td className="px-6 py-4 text-right text-xs">
-                                        <div className="text-slate-600">🛢️ {v.oil_change_interval_km?.toLocaleString() || v.vehicleType?.oil_change_interval_km?.toLocaleString() || '-'} กม.</div>
-                                        <div className="text-slate-600">🛞 {v.tire_change_interval_km?.toLocaleString() || v.vehicleType?.tire_change_interval_km?.toLocaleString() || '-'} กม.</div>
+                                    <td className="px-4 py-3 text-slate-600">{v.driver?.full_name || '-'}</td>
+                                    <td className="px-4 py-3 text-right text-xs">
+                                        <div className="text-slate-600"><span className="text-slate-400 font-medium">น้ำมัน:</span> {v.oil_change_interval_km?.toLocaleString() || v.vehicleType?.oil_change_interval_km?.toLocaleString() || '-'} กม.</div>
+                                        <div className="text-slate-600"><span className="text-slate-400 font-medium">ยาง:</span> {v.tire_change_interval_km?.toLocaleString() || v.vehicleType?.tire_change_interval_km?.toLocaleString() || '-'} กม.</div>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-medium text-slate-800">{(v.current_mileage || 0).toLocaleString()} กม.</td>
-                                    <td className="px-6 py-4 text-center"><StatusBadge status={v.status} /></td>
-                                    <td className="px-6 py-4 text-center">
+                                    <td className="px-4 py-3 text-right font-medium text-slate-800">{(v.current_mileage || 0).toLocaleString()} กม.</td>
+                                    <td className="px-4 py-3 text-center"><StatusBadge status={v.status} /></td>
+                                    <td className="px-4 py-3 text-center">
                                         <div className="flex items-center justify-center space-x-2">
-                                            <button onClick={() => openEdit(v)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded" title="แก้ไข"><Pencil size={15} /></button>
-                                            <button onClick={() => handleDelete(v.vehicle_id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="ลบ"><Trash2 size={15} /></button>
+                                            <button onClick={() => openEdit(v)} className="px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200">แก้ไข</button>
+                                            <button onClick={() => handleDelete(v.vehicle_id)} className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200">ลบ</button>
                                         </div>
                                     </td>
                                 </tr>

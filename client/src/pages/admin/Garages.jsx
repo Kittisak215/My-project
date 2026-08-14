@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search, Pencil, Trash2, X } from 'lucide-react';
+import { Plus, Search, X } from 'lucide-react';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
 import { useForm } from 'react-hook-form';
@@ -123,8 +123,8 @@ export default function GaragesPage() {
                                 )}
                             </div>
                             <div className="flex items-center gap-1 ml-2 shrink-0">
-                                <button onClick={() => openEdit(g)} className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg"><Pencil size={15} /></button>
-                                <button onClick={() => handleDelete(g.garage_id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={15} /></button>
+                                <button onClick={() => openEdit(g)} className="px-3 py-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200">แก้ไข</button>
+                                <button onClick={() => handleDelete(g.garage_id)} className="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200">ลบ</button>
                             </div>
                         </div>
                     </div>
@@ -165,8 +165,8 @@ export default function GaragesPage() {
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center space-x-2">
-                                            <button onClick={() => openEdit(g)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded" title="แก้ไข"><Pencil size={15} /></button>
-                                            <button onClick={() => handleDelete(g.garage_id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded" title="ลบ"><Trash2 size={15} /></button>
+                                            <button onClick={() => openEdit(g)} className="px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200">แก้ไข</button>
+                                            <button onClick={() => handleDelete(g.garage_id)} className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200">ลบ</button>
                                         </div>
                                     </td>
                                 </tr>

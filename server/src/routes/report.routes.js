@@ -6,5 +6,5 @@ router.use(authMiddleware);
 router.get('/dashboard', requireRole('ADMIN'), c.adminDashboard);
 router.get('/executive', requireRole('EXECUTIVE', 'ADMIN'), c.executiveDashboard);
 router.get('/expense', requireRole('EXECUTIVE', 'ADMIN'), c.expenseReport);
-router.get('/approvals', requireRole('EXECUTIVE', 'ADMIN'), c.pendingApprovals);
+router.get('/approvals', requireRole('ADMIN'), c.pendingApprovals);
 module.exports = router;

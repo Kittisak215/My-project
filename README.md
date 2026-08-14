@@ -92,6 +92,6 @@
 
 ## 🔑 บัญชีเข้าใช้งานสำหรับทดสอบ (Test Accounts)
 สามารถใช้บัญชีเริ่มต้นในการเข้าสู่ระบบเพื่อทดสอบระบบได้ดังนี้ (กำหนดจาก `seed.js`):
-- **Admin**: Username: `admin` | Password: `123456`
-- **Executive**: Username: `exec` | Password: `123456`
-- **Driver**: Username: `driver` | Password: `123456`
+- **Admin**: Username: `Admin` | Password: `123456`
+- **Executive**: Username: `Exec` | Password: `123456`
+- **Driver**: Username: `Driver` | Password: `123456`

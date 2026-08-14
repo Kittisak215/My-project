@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Search, Pencil, Trash2, X } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Search, X, ExternalLink, ImageOff } from 'lucide-react';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
 import { useForm } from 'react-hook-form';
@@ -20,6 +20,17 @@ const statusLabel = {
     AWAITING_APPROVAL: '⏳ รออนุมัติ',
     APPROVED: '✅ อนุมัติแล้ว',
     REJECTED: '❌ ไม่อนุมัติ'
+};
+
+const repairTypeMap = {
+    GENERAL: { label: 'ซ่อมทั่วไป', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+    MAINTENANCE: { label: 'บำรุงรักษาตามระยะ', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    EMERGENCY: { label: 'ซ่อมฉุกเฉิน', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
+};
+
+const RepairTypeBadge = ({ type }) => {
+    const info = repairTypeMap[type] || { label: type || 'ซ่อมทั่วไป', cls: 'bg-slate-100 text-slate-700 border-slate-200' };
+    return <span className={clsx('text-xs px-2.5 py-0.5 rounded-full font-semibold border inline-block', info.cls)}>{info.label}</span>;
 };
 
 const StatusBadge = ({ status }) => (
@@ -46,13 +57,14 @@ export default function RepairsPage() {
     const [status, setStatus] = useState('');
     const [loading, setLoading] = useState(true);
     const [showStatusModal, setShowStatusModal] = useState(false);
+    const [showDetailModal, setShowDetailModal] = useState(false);
     const [selectedRepair, setSelectedRepair] = useState(null);
+    const [selectedDetailRepair, setSelectedDetailRepair] = useState(null);
     const [garages, setGarages] = useState([]);
     const { register, handleSubmit, reset } = useForm();
     const limit = 10;
 
-    const fetchAll = async () => {
-        setLoading(true);
+    const fetchAll = useCallback(async () => {
         try {
             const [rRes, gRes] = await Promise.all([
                 api.get('/repairs', { params: { search, status, page, limit } }),
@@ -61,15 +73,20 @@ export default function RepairsPage() {
             setRepairs(rRes.data.data); setTotal(rRes.data.total);
             setGarages(gRes.data.data);
         } catch { toast.error('โหลดข้อมูลไม่สำเร็จ'); }
-        setLoading(false);
-    };
+        finally { setLoading(false); }
+    }, [search, status, page, limit]);
 
-    useEffect(() => { fetchAll(); }, [search, status, page]);
+    useEffect(() => { fetchAll(); }, [fetchAll]);
 
     const openStatusModal = (r) => {
         setSelectedRepair(r);
         reset({ status: r.status, note: r.note, garage_id: r.garage_id, total_cost: r.total_cost });
         setShowStatusModal(true);
+    };
+
+    const openDetailModal = (r) => {
+        setSelectedDetailRepair(r);
+        setShowDetailModal(true);
     };
 
     const onStatusSubmit = async (data) => {
@@ -123,7 +140,7 @@ export default function RepairsPage() {
                         </div>
                         <div className="flex items-center gap-3 mb-2">
                             <p className="font-semibold text-slate-800">{r.vehicle?.license_plate}</p>
-                            <span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded border">{r.repair_type}</span>
+                            <RepairTypeBadge type={r.repair_type} />
                         </div>
                         <p className="text-sm text-slate-600 mb-2 line-clamp-2">{r.issue_description}</p>
                         <div className="flex items-center justify-between">
@@ -131,13 +148,16 @@ export default function RepairsPage() {
                                 {r.garage ? <span>{r.garage.garage_name}</span> : <span className="italic">รอระบุอู่</span>}
                                 {r.total_cost && <span className="ml-2 font-semibold text-slate-700">{parseFloat(r.total_cost).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บ.</span>}
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1.5">
                                 {r.status !== 'COMPLETED' && r.status !== 'REJECTED' && (
-                                    <button onClick={() => openStatusModal(r)} className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded text-xs font-medium hover:bg-blue-100 border border-blue-200">
+                                    <button onClick={() => openStatusModal(r)} className="px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded border border-blue-200">
                                         {r.status === 'PENDING' ? 'ตรวจสอบ' : 'อัปเดต'}
                                     </button>
                                 )}
-                                <button onClick={() => handleDelete(r.request_id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
+                                <button onClick={() => openDetailModal(r)} className="px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded border border-slate-200">
+                                    รายละเอียด
+                                </button>
+                                <button onClick={() => handleDelete(r.request_id)} className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200">ลบ</button>
                             </div>
                         </div>
                     </div>
@@ -173,7 +193,7 @@ export default function RepairsPage() {
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">{r.driver?.full_name || '-'}</td>
                                     <td className="px-6 py-4">
-                                        <span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded border mb-1 inline-block">{r.repair_type}</span>
+                                        <div className="mb-1"><RepairTypeBadge type={r.repair_type} /></div>
                                         <div className="text-slate-800 text-sm truncate-2">{r.issue_description}</div>
                                     </td>
                                     <td className="px-6 py-4">
@@ -186,11 +206,14 @@ export default function RepairsPage() {
                                     <td className="px-6 py-4 text-center whitespace-nowrap">
                                         <div className="flex items-center justify-center space-x-2">
                                             {r.status !== 'COMPLETED' && r.status !== 'REJECTED' && (
-                                                <button onClick={() => openStatusModal(r)} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded text-xs font-medium hover:bg-blue-100 border border-blue-200">
+                                                <button onClick={() => openStatusModal(r)} className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded border border-blue-200">
                                                     {r.status === 'PENDING' ? 'ตรวจสอบ' : 'อัปเดตสถานะ'}
                                                 </button>
                                             )}
-                                            <button onClick={() => handleDelete(r.request_id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={15} /></button>
+                                            <button onClick={() => openDetailModal(r)} className="px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded border border-slate-200">
+                                                รายละเอียด
+                                            </button>
+                                            <button onClick={() => handleDelete(r.request_id)} className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200">ลบ</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -246,6 +269,89 @@ export default function RepairsPage() {
                             <button type="submit" className="px-4 py-2 bg-[#8A1ABA] text-white rounded-lg text-sm font-medium hover:bg-[#72159c]">บันทึก</button>
                         </div>
                     </form>
+                </Modal>
+            )}
+            {showDetailModal && selectedDetailRepair && (
+                <Modal title={`รายละเอียดการส่งซ่อม: REQ-${String(selectedDetailRepair.request_id).padStart(4, '0')}`} onClose={() => setShowDetailModal(false)}>
+                    <div className="space-y-4 text-sm">
+                        <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border">
+                            <span className="text-slate-500 font-medium">สถานะคำร้อง</span>
+                            <StatusBadge status={selectedDetailRepair.status} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-slate-50 p-3 rounded-lg border">
+                                <p className="text-xs text-slate-400">ทะเบียนรถ</p>
+                                <p className="font-semibold text-slate-800">{selectedDetailRepair.vehicle?.license_plate || '-'}</p>
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-lg border">
+                                <p className="text-xs text-slate-400">เลขไมล์ขณะส่งซ่อม</p>
+                                <p className="font-semibold text-slate-800">{(selectedDetailRepair.mileage_at_repair || 0).toLocaleString()} กม.</p>
+                            </div>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-lg border">
+                            <p className="text-xs text-slate-400">ผู้แจ้งซ่อม</p>
+                            <p className="font-medium text-slate-800">{selectedDetailRepair.driver?.full_name || '-'}</p>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-lg border">
+                            <p className="text-xs text-slate-400 mb-1">ประเภทการซ่อม / อาการแจ้งซ่อม</p>
+                            <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded mr-2">{selectedDetailRepair.repair_type}</span>
+                            <p className="text-slate-800 mt-1">{selectedDetailRepair.issue_description}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-slate-50 p-3 rounded-lg border">
+                                <p className="text-xs text-slate-400">อู่ซ่อมบำรุง</p>
+                                <p className="font-medium text-slate-800">{selectedDetailRepair.garage?.garage_name || 'ยังไม่ระบุ'}</p>
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-lg border">
+                                <p className="text-xs text-slate-400">ค่าใช้จ่ายรวม</p>
+                                <p className="font-semibold text-blue-600">{selectedDetailRepair.total_cost ? `${parseFloat(selectedDetailRepair.total_cost).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท` : '-'}</p>
+                            </div>
+                        </div>
+                        {selectedDetailRepair.repair_detail && (
+                            <div className="bg-slate-50 p-3 rounded-lg border">
+                                <p className="text-xs text-slate-400">รายการซ่อมบำรุงเพิ่มเติม</p>
+                                <p className="text-slate-700 mt-1">{selectedDetailRepair.repair_detail}</p>
+                            </div>
+                        )}
+                        {selectedDetailRepair.note && (
+                            <div className="bg-slate-50 p-3 rounded-lg border">
+                                <p className="text-xs text-slate-400">หมายเหตุจากแอดมิน</p>
+                                <p className="text-slate-700 mt-1">{selectedDetailRepair.note}</p>
+                            </div>
+                        )}
+                        <div className="bg-slate-50 p-3 rounded-lg border">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs text-slate-400">รูปภาพหลักฐาน / ใบเสร็จ</p>
+                                {selectedDetailRepair.receipt_image && (
+                                    <a
+                                        href={selectedDetailRepair.receipt_image}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                    >
+                                        <ExternalLink size={12} /> เปิดรูปภาพขนาดเต็ม
+                                    </a>
+                                )}
+                            </div>
+                            {selectedDetailRepair.receipt_image ? (
+                                <a href={selectedDetailRepair.receipt_image} target="_blank" rel="noopener noreferrer">
+                                    <img
+                                        src={selectedDetailRepair.receipt_image}
+                                        alt="ใบเสร็จ/หลักฐาน"
+                                        className="w-full max-h-64 object-contain rounded border bg-white cursor-pointer hover:opacity-90 transition-opacity"
+                                    />
+                                </a>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-6 text-slate-400 gap-2">
+                                    <ImageOff size={28} />
+                                    <p className="text-xs">ไม่มีรูปภาพหลักฐาน / ใบเสร็จ</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex justify-end pt-3 border-t">
+                            <button type="button" onClick={() => setShowDetailModal(false)} className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700">ปิด</button>
+                        </div>
+                    </div>
                 </Modal>
             )}
         </div>

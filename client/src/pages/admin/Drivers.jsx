@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, Pencil, Trash2, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
 import { useForm } from 'react-hook-form';
@@ -107,8 +107,8 @@ export default function DriversPage() {
                                 <span className="bg-blue-100 text-blue-700 py-0.5 px-2 rounded-full text-xs font-medium mt-2 inline-block">{d.vehicles?.length || 0} คัน</span>
                             </div>
                             <div className="flex items-center gap-1 ml-2 shrink-0">
-                                <button onClick={() => openEdit(d)} className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg"><Pencil size={15} /></button>
-                                <button onClick={() => handleDelete(d.driver_id)} disabled={d.vehicles?.length > 0} className="p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-30"><Trash2 size={15} /></button>
+                                <button onClick={() => openEdit(d)} className="px-3 py-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200">แก้ไข</button>
+                                <button onClick={() => handleDelete(d.driver_id)} disabled={d.vehicles?.length > 0} className="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200 disabled:opacity-30">ลบ</button>
                             </div>
                         </div>
                     </div>
@@ -142,8 +142,8 @@ export default function DriversPage() {
                                     <td className="px-6 py-4 text-center"><StatusBadge isActive={d.is_active} /></td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex items-center justify-center space-x-2">
-                                            <button onClick={() => openEdit(d)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded" title="แก้ไข"><Pencil size={15} /></button>
-                                            <button onClick={() => handleDelete(d.driver_id)} disabled={d.vehicles?.length > 0} className="p-1.5 text-red-500 hover:bg-red-50 rounded disabled:opacity-30 disabled:cursor-not-allowed" title="ลบ"><Trash2 size={15} /></button>
+                                            <button onClick={() => openEdit(d)} className="px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200">แก้ไข</button>
+                                            <button onClick={() => handleDelete(d.driver_id)} disabled={d.vehicles?.length > 0} className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200 disabled:opacity-30 disabled:cursor-not-allowed">ลบ</button>
                                         </div>
                                     </td>
                                 </tr>

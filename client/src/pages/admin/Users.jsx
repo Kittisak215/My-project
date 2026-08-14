@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, Pencil, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
 import { useForm } from 'react-hook-form';
@@ -116,9 +116,9 @@ export default function UsersPage() {
                             <button
                                 onClick={() => openEdit(u)}
                                 disabled={currentUser?.user_id === u.user_id}
-                                className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg disabled:opacity-30 ml-2 shrink-0"
+                                className="px-3 py-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200 disabled:opacity-30 ml-2 shrink-0"
                             >
-                                <Pencil size={15} />
+                                แก้ไข
                             </button>
                         </div>
                     </div>
@@ -154,10 +154,9 @@ export default function UsersPage() {
                                         <button
                                             onClick={() => openEdit(u)}
                                             disabled={currentUser?.user_id === u.user_id}
-                                            className="p-1.5 text-amber-500 hover:bg-amber-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                                            title="แก้ไขระดับ/สถานะ"
+                                            className="px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200 disabled:opacity-30 disabled:cursor-not-allowed"
                                         >
-                                            <Pencil size={15} />
+                                            แก้ไข
                                         </button>
                                     </td>
                                 </tr>

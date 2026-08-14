@@ -90,13 +90,11 @@ export default function DriverDashboard() {
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
-                <Link to="/driver/mileage" className="bg-[#8A1ABA] hover:bg-[#72159c] text-white rounded-xl p-5 text-center shadow-sm transition-colors">
-                    <div className="text-3xl mb-2">📊</div>
-                    <p className="font-semibold">บันทึกระยะทาง</p>
+                <Link to="/driver/mileage" className="bg-[#8A1ABA] hover:bg-[#72159c] text-white rounded-xl p-4 text-center shadow-sm transition-colors font-semibold flex items-center justify-center min-h-[56px]">
+                    บันทึกระยะทาง
                 </Link>
-                <Link to="/driver/repair" className="bg-red-600 hover:bg-red-700 text-white rounded-xl p-5 text-center shadow-sm transition-colors">
-                    <div className="text-3xl mb-2">🔧</div>
-                    <p className="font-semibold">แจ้งซ่อม / เบิกฉุกเฉิน</p>
+                <Link to="/driver/repair" className="bg-red-600 hover:bg-red-700 text-white rounded-xl p-4 text-center shadow-sm transition-colors font-semibold flex items-center justify-center min-h-[56px]">
+                    แจ้งซ่อม / เบิกฉุกเฉิน
                 </Link>
             </div>
 

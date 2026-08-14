@@ -10,7 +10,6 @@ import DriverLayout from './layouts/DriverLayout';
 
 // Auth
 import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -24,7 +23,7 @@ import AlertsPage from './pages/admin/Alerts';
 // Executive Pages
 import ExecutiveDashboard from './pages/executive/Dashboard';
 import ExpenseReportPage from './pages/executive/ExpenseReport';
-import ApprovalsPage from './pages/executive/Approvals';
+import ApprovalsPage from './pages/admin/Approvals';
 import FleetRegistryPage from './pages/executive/FleetRegistry';
 
 // Driver Pages
@@ -54,7 +53,7 @@ function App() {
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/register" element={<Navigate to="/login" replace />} />
         <Route path="/" element={<ProtectedRoute><RoleRedirect /></ProtectedRoute>} />
 
         <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminLayout /></ProtectedRoute>}>
@@ -65,13 +64,13 @@ function App() {
           <Route path="repairs" element={<RepairsPage />} />
           <Route path="garages" element={<GaragesPage />} />
           <Route path="alerts" element={<AlertsPage />} />
+          <Route path="approvals" element={<ApprovalsPage />} />
         </Route>
 
         {/* Executive Routes */}
         <Route path="/executive" element={<ProtectedRoute allowedRoles={['EXECUTIVE']}><ExecutiveLayout /></ProtectedRoute>}>
           <Route index element={<ExecutiveDashboard />} />
           <Route path="expense-report" element={<ExpenseReportPage />} />
-          <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="fleet-registry" element={<FleetRegistryPage />} />
         </Route>
 

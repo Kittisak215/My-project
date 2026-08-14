@@ -73,15 +73,6 @@ export default function LoginPage() {
                         </button>
                     </form>
                 </div>
-
-                <div className="bg-slate-50 border-t border-slate-200 p-4 text-center">
-                    <p className="text-sm text-slate-600">
-                        ยังไม่มีบัญชีผู้ใช้?{' '}
-                        <button type="button" onClick={() => navigate('/register')} className="text-blue-600 font-semibold hover:underline">
-                            สมัครสมาชิก
-                        </button>
-                    </p>
-                </div>
             </div>
         </div>
     );

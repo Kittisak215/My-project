@@ -27,21 +27,27 @@ async function main() {
     const execPass = await bcrypt.hash('123456', 10);
     const driverPass = await bcrypt.hash('123456', 10);
 
-    const admin = await prisma.user.upsert({
-        where: { username: 'admin' },
-        update: {},
-        create: { username: 'admin', password: adminPass, role: 'ADMIN' },
-    });
-    const exec = await prisma.user.upsert({
-        where: { username: 'exec' },
-        update: {},
-        create: { username: 'exec', password: execPass, role: 'EXECUTIVE' },
-    });
-    await prisma.user.upsert({
-        where: { username: 'driver' },
-        update: {},
-        create: { username: 'driver', password: driverPass, role: 'DRIVER', driverProfileId: driver1.id },
-    });
+    for (const u of ['Admin', 'admin']) {
+        await prisma.user.upsert({
+            where: { username: u },
+            update: {},
+            create: { username: u, password: adminPass, role: 'ADMIN' },
+        });
+    }
+    for (const u of ['Exec', 'exec']) {
+        await prisma.user.upsert({
+            where: { username: u },
+            update: {},
+            create: { username: u, password: execPass, role: 'EXECUTIVE' },
+        });
+    }
+    for (const u of ['Driver', 'driver']) {
+        await prisma.user.upsert({
+            where: { username: u },
+            update: {},
+            create: { username: u, password: driverPass, role: 'DRIVER', driverProfileId: driver1.id },
+        });
+    }
 
     // Create Vehicles
     const v1 = await prisma.vehicle.upsert({

@@ -40,19 +40,25 @@ async function main() {
     const execHash = await bcrypt.hash('123456', 10);
     const driverHash = await bcrypt.hash('123456', 10);
 
-    await prisma.user.upsert({
-        where: { username: 'admin' }, update: {},
-        create: { username: 'admin', password_hash: adminHash, role: 'ADMIN', full_name: 'ผู้ดูแลระบบ', is_active: true },
-    });
-    await prisma.user.upsert({
-        where: { username: 'exec' }, update: {},
-        create: { username: 'exec', password_hash: execHash, role: 'EXECUTIVE', full_name: 'ผู้อำนวยการ', is_active: true },
-    });
-    await prisma.user.upsert({
-        where: { username: 'driver' }, update: {},
-        create: { username: 'driver', password_hash: driverHash, role: 'DRIVER', full_name: driver1.full_name, driver_id: driver1.driver_id, is_active: true },
-    });
-    console.log(`✅ Created 3 users (admin/exec/driver)`);
+    for (const u of ['Admin', 'admin']) {
+        await prisma.user.upsert({
+            where: { username: u }, update: {},
+            create: { username: u, password_hash: adminHash, role: 'ADMIN', full_name: 'ผู้ดูแลระบบ', is_active: true },
+        });
+    }
+    for (const u of ['Exec', 'exec']) {
+        await prisma.user.upsert({
+            where: { username: u }, update: {},
+            create: { username: u, password_hash: execHash, role: 'EXECUTIVE', full_name: 'ผู้อำนวยการ', is_active: true },
+        });
+    }
+    for (const u of ['Driver', 'driver']) {
+        await prisma.user.upsert({
+            where: { username: u }, update: {},
+            create: { username: u, password_hash: driverHash, role: 'DRIVER', full_name: driver1.full_name, driver_id: driver1.driver_id, is_active: true },
+        });
+    }
+    console.log(`✅ Created test users (Admin/Exec/Driver)`);
 
     // ============================================
     // Vehicles
@@ -155,9 +161,9 @@ async function main() {
 
     console.log('\n🎉 Seed completed successfully!\n');
     console.log('📋 Demo Login Accounts:');
-    console.log('   Admin   : username=admin   password=123456');
-    console.log('   Executive: username=exec    password=123456');
-    console.log('   Driver  : username=driver  password=123456');
+    console.log('   Admin   : username=Admin   password=123456');
+    console.log('   Executive: username=Exec    password=123456');
+    console.log('   Driver  : username=Driver  password=123456');
 }
 
 main()

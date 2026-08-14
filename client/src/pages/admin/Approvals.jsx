@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { CheckCircle, XCircle, ExternalLink, ImageOff } from 'lucide-react';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
 
@@ -8,16 +8,15 @@ export default function ApprovalsPage() {
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(null);
 
-    const fetchData = async () => {
-        setLoading(true);
+    const fetchData = useCallback(async () => {
         try { const res = await api.get('/reports/approvals'); setData(res.data); }
         catch { toast.error('โหลดข้อมูลไม่สำเร็จ'); }
-        setLoading(false);
-    };
-    useEffect(() => { fetchData(); }, []);
+        finally { setLoading(false); }
+    }, []);
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     const handleDecision = async (id, approved) => {
-        const note = approved ? 'อนุมัติโดยผู้บริหาร' : window.prompt('กรุณาระบุเหตุผลที่ไม่อนุมัติ:');
+        const note = approved ? 'อนุมัติโดยผู้ดูแลระบบ (Admin)' : window.prompt('กรุณาระบุเหตุผลที่ไม่อนุมัติ:');
         if (!approved && !note) return;
         setProcessing(id);
         try {
@@ -73,6 +72,37 @@ export default function ApprovalsPage() {
                                 <div className="mt-3 bg-slate-50 p-3 rounded-lg">
                                     <p className="text-sm text-slate-500">ค่าใช้จ่ายที่ขออนุมัติ</p>
                                     <p className="text-2xl font-bold text-red-600">{(r.total_cost || r.estimatedCost || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท</p>
+                                </div>
+
+                                {/* ──── แสดงสลิป/ใบเสร็จ ──── */}
+                                <div className="mt-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-xs text-slate-500 font-medium">📎 หลักฐาน / สลิปใบเสร็จ</p>
+                                        {r.receipt_image && (
+                                            <a
+                                                href={r.receipt_image}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                            >
+                                                <ExternalLink size={12} /> เปิดรูปขนาดเต็ม
+                                            </a>
+                                        )}
+                                    </div>
+                                    {r.receipt_image ? (
+                                        <a href={r.receipt_image} target="_blank" rel="noopener noreferrer">
+                                            <img
+                                                src={r.receipt_image}
+                                                alt="สลิป/ใบเสร็จ"
+                                                className="w-full max-h-56 object-contain rounded border bg-white cursor-pointer hover:opacity-90 transition-opacity"
+                                            />
+                                        </a>
+                                    ) : (
+                                        <div className="flex items-center gap-2 text-slate-400 py-3">
+                                            <ImageOff size={18} />
+                                            <p className="text-xs">ไม่มีหลักฐาน / สลิปแนบมา</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="flex flex-col gap-2 min-w-32">

@@ -1,4 +1,4 @@
-const axios = require('axios');
+import axios from 'axios';
 (async () => {
     try {
         const login = await axios.post('http://localhost:5000/api/auth/login', { username: 'admin', password: '123456' });

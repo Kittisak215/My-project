@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, CheckSquare, Car, LogOut, Menu } from 'lucide-react';
+import { LayoutDashboard, FileText, Car, LogOut, Menu } from 'lucide-react';
 import { useState } from 'react';
 import useAuthStore from '../store/authStore';
 import clsx from 'clsx';
@@ -7,7 +7,6 @@ import clsx from 'clsx';
 const navItems = [
     { to: '/executive', label: 'ภาพรวมผู้บริหาร', icon: LayoutDashboard, end: true },
     { to: '/executive/expense-report', label: 'รายงานค่าใช้จ่าย', icon: FileText },
-    { to: '/executive/approvals', label: 'อนุมัติการซ่อม', icon: CheckSquare },
     { to: '/executive/fleet-registry', label: 'ทะเบียนรถทั้งหมด', icon: Car },
 ];
 

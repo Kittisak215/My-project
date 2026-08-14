@@ -36,7 +36,7 @@ exports.adminDashboard = async (req, res) => {
 exports.executiveDashboard = async (req, res) => {
     try {
         const thisYear = new Date().getFullYear();
-        const [yearlyAgg, totalVehicles, readyVehicles, pendingApprovals, topVehicles] = await Promise.all([
+        const [yearlyAgg, totalVehicles, readyVehicles, pendingApprovals, topVehicles, allCompletedRepairs] = await Promise.all([
             prisma.repairRequest.aggregate({
                 where: { status: 'COMPLETED', created_at: { gte: new Date(thisYear, 0, 1), lt: new Date(thisYear + 1, 0, 1) } },
                 _sum: { total_cost: true }
@@ -52,6 +52,10 @@ exports.executiveDashboard = async (req, res) => {
                 orderBy: { _sum: { total_cost: 'desc' } },
                 take: 5,
             }),
+            prisma.repairRequest.findMany({
+                where: { status: 'COMPLETED' },
+                select: { total_cost: true, created_at: true }
+            })
         ]);
 
         const topVehicleIds = topVehicles.map(t => t.vehicle_id);
@@ -65,16 +69,40 @@ exports.executiveDashboard = async (req, res) => {
 
         const totalMileageAgg = await prisma.mileageLog.aggregate({ _sum: { distance_km: true } });
 
+        // Calculate yearly expenses breakdown from actual database records
+        const yearlyExpenseMap = {};
+        allCompletedRepairs.forEach(r => {
+            const yr = new Date(r.created_at).getFullYear();
+            yearlyExpenseMap[yr] = (yearlyExpenseMap[yr] || 0) + Number(r.total_cost || 0);
+        });
+
+        if (yearlyExpenseMap[thisYear] === undefined) {
+            yearlyExpenseMap[thisYear] = Number(yearlyAgg._sum.total_cost || 0);
+        }
+
+        const yearlyExpenses = Object.keys(yearlyExpenseMap).sort().map(yr => {
+            const yearNum = Number(yr);
+            return {
+                year: yearNum,
+                yearTh: `ปี ${yearNum + 543}`,
+                totalCost: yearlyExpenseMap[yr]
+            };
+        });
+
         res.json({
             stats: {
-                yearlyExpense: yearlyAgg._sum.total_cost || 0,
+                yearlyExpense: Number(yearlyAgg._sum.total_cost || 0),
                 availabilityRate: totalVehicles > 0 ? Math.round((readyVehicles / totalVehicles) * 100) : 0,
-                totalMileage: totalMileageAgg._sum.distance_km || 0,
+                totalMileage: Number(totalMileageAgg._sum.distance_km || 0),
                 pendingApprovals,
+                totalVehicles,
+                readyVehicles,
+                unavailableVehicles: Math.max(0, totalVehicles - readyVehicles),
             },
+            yearlyExpenses,
             topVehicles: topVehicles.map(t => ({
                 vehicle: tvMap[t.vehicle_id],
-                totalCost: t._sum.total_cost || 0,
+                totalCost: Number(t._sum.total_cost || 0),
                 repairCount: t._count.request_id,
             }))
         });
@@ -83,8 +111,10 @@ exports.executiveDashboard = async (req, res) => {
 
 exports.expenseReport = async (req, res) => {
     try {
-        const { from, to, vehicleId, category, page = 1, limit = 10 } = req.query;
-        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const { from, to, vehicleId, category, page = 1, limit = 10, exportAll } = req.query;
+        const pageNum = Math.max(1, parseInt(page) || 1);
+        const limitNum = Math.max(1, parseInt(limit) || 10);
+        const skip = (pageNum - 1) * limitNum;
         const where = { status: { in: ['COMPLETED', 'APPROVED'] } };
 
         let dateFilter = {};
@@ -100,16 +130,61 @@ exports.expenseReport = async (req, res) => {
 
         if (vehicleId && vehicleId !== 'all') where.vehicle_id = parseInt(vehicleId);
         if (category && category !== 'all') {
-            const typeMap = { 'ซ่อมทั่วไป': 'GENERAL', 'บำรุงรักษาตามระยะ': 'MAINTENANCE', 'ซ่อมฉุกเฉิน': 'EMERGENCY' };
+            const typeMap = {
+                'GENERAL': 'GENERAL',
+                'MAINTENANCE': 'MAINTENANCE',
+                'EMERGENCY': 'EMERGENCY',
+                'ซ่อมทั่วไป': 'GENERAL',
+                'บำรุงรักษาตามระยะ': 'MAINTENANCE',
+                'ซ่อมฉุกเฉิน': 'EMERGENCY',
+                'เบิกฉุกเฉิน': 'EMERGENCY'
+            };
             if (typeMap[category]) where.repair_type = typeMap[category];
         }
 
-        const [data, total, agg] = await Promise.all([
-            prisma.repairRequest.findMany({ where, skip, take: parseInt(limit), include: { vehicle: true, garage: true }, orderBy: { created_at: 'desc' } }),
+        const isExport = exportAll === 'true';
+
+        const [data, total, agg, categoryBreakdown] = await Promise.all([
+            prisma.repairRequest.findMany({
+                where,
+                ...(isExport ? {} : { skip, take: limitNum }),
+                include: {
+                    vehicle: { include: { driver: true, vehicleType: true } },
+                    garage: true,
+                    driver: true
+                },
+                orderBy: { created_at: 'desc' }
+            }),
             prisma.repairRequest.count({ where }),
-            prisma.repairRequest.aggregate({ where, _sum: { total_cost: true }, _avg: { total_cost: true } }),
+            prisma.repairRequest.aggregate({
+                where,
+                _sum: { total_cost: true },
+                _avg: { total_cost: true },
+                _max: { total_cost: true }
+            }),
+            prisma.repairRequest.groupBy({
+                by: ['repair_type'],
+                where,
+                _sum: { total_cost: true },
+                _count: { request_id: true }
+            })
         ]);
-        res.json({ data, total, totalAmount: agg._sum.total_cost || 0, avgAmount: Number(agg._avg.total_cost) || 0 });
+
+        res.json({
+            data,
+            total,
+            totalAmount: Number(agg._sum.total_cost || 0),
+            avgAmount: Number(agg._avg.total_cost || 0),
+            maxAmount: Number(agg._max.total_cost || 0),
+            page: pageNum,
+            limit: limitNum,
+            totalPages: Math.ceil(total / limitNum) || 1,
+            categoryBreakdown: categoryBreakdown.map(c => ({
+                type: c.repair_type,
+                totalCost: Number(c._sum.total_cost || 0),
+                count: c._count.request_id
+            }))
+        });
     } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
