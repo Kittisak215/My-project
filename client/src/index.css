@@ -53,29 +53,14 @@ body {
   }
 }
 
-/* Date input format hack for DD/MM/YYYY visually */
-input[type="date"]::-webkit-datetime-edit-month-field,
-input[type="date"]::-webkit-datetime-edit-day-field,
-input[type="date"]::-webkit-datetime-edit-year-field {
-    color: transparent;
-    display: none;
-}
 
-input[type="date"]::-webkit-datetime-edit-text {
-    display: none;
-}
 
-input[type="date"]:before {
-    content: attr(data-date);
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: calc(100% - 36px);
-    color: black;
-    pointer-events: none;
+/* Hide number input spin buttons */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
-
-input[type="date"] {
-    position: relative;
+input[type="number"] {
+    -moz-appearance: textfield; /* Firefox */
 }

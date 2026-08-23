@@ -7,6 +7,9 @@ exports.getAll = async (req, res) => {
         const where = {};
         if (search) where.OR = [{ garage_name: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }];
         if (specialization) where.specialization = { has: specialization };
+        if (req.query.is_active !== undefined && req.query.is_active !== '') {
+            where.is_active = req.query.is_active === 'true';
+        }
 
         const [garages, total] = await Promise.all([
             prisma.garage.findMany({ where, skip, take: parseInt(limit), orderBy: { garage_id: 'desc' } }),
@@ -29,11 +32,12 @@ exports.getById = async (req, res) => {
 
 exports.create = async (req, res) => {
     try {
-        const { specialization, ...rest } = req.body;
+        const { specialization, is_active, ...rest } = req.body;
         const garage = await prisma.garage.create({
             data: {
                 ...rest,
-                specialization: specialization || ['GENERAL']
+                specialization: specialization || ['GENERAL'],
+                is_active: is_active !== undefined ? (is_active === true || is_active === 'true') : true
             }
         });
         res.status(201).json(garage);
@@ -42,7 +46,12 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
     try {
-        const garage = await prisma.garage.update({ where: { garage_id: parseInt(req.params.id) }, data: req.body });
+        const { is_active, ...rest } = req.body;
+        const data = { ...rest };
+        if (is_active !== undefined) {
+            data.is_active = is_active === true || is_active === 'true';
+        }
+        const garage = await prisma.garage.update({ where: { garage_id: parseInt(req.params.id) }, data });
         res.json(garage);
     } catch (err) { res.status(400).json({ message: err.message }); }
 };
@@ -50,14 +59,10 @@ exports.update = async (req, res) => {
 exports.remove = async (req, res) => {
     try {
         const garageId = parseInt(req.params.id);
-
-        // Clear garage_id from associated repair requests to avoid foreign key errors
-        await prisma.repairRequest.updateMany({
+        await prisma.garage.update({
             where: { garage_id: garageId },
-            data: { garage_id: null }
+            data: { is_active: false }
         });
-
-        await prisma.garage.delete({ where: { garage_id: garageId } });
-        res.json({ message: 'Garage deleted' });
+        res.json({ message: 'Garage deactivated' });
     } catch (err) { res.status(400).json({ message: err.message }); }
 };

@@ -15,8 +15,9 @@
 import { useEffect, useState } from 'react';
 import {
     TrendingUp, Car, Gauge, ClipboardList, BarChart3, PieChart,
-    ShieldCheck, CheckCircle2, AlertTriangle, Wrench, Activity, Zap
+    ShieldCheck, CheckCircle2, AlertTriangle, Wrench, Activity, Zap, X, Calendar, MapPin
 } from 'lucide-react';
+import StatusBadge from '../../components/StatusBadge';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
 import clsx from 'clsx';
@@ -51,6 +52,95 @@ function injectStyle(id, css) {
         el.textContent = css;
         document.head.appendChild(el);
     }
+}
+
+/* ─── Vehicle Expense Modal ─── */
+function VehicleExpenseModal({ vehicleId, onClose }) {
+    const [loading, setLoading] = useState(true);
+    const [repairs, setRepairs] = useState([]);
+    const [vehicle, setVehicle] = useState(null);
+
+    useEffect(() => {
+        if (!vehicleId) return;
+        const fetchRepairs = async () => {
+            setLoading(true);
+            try {
+                // Using the expense report endpoint to fetch specific vehicle's completed repairs
+                const res = await api.get('/report/expense', { params: { vehicleId, limit: 100 } });
+                setRepairs(res.data.expenses || []);
+                if (res.data.expenses?.length > 0) {
+                    setVehicle(res.data.expenses[0].vehicle);
+                }
+            } catch (err) {
+                console.error(err);
+                toast.error('ไม่สามารถดึงข้อมูลประวัติการซ่อมได้');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchRepairs();
+    }, [vehicleId]);
+
+    if (!vehicleId) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" style={{ animation: 'fadeSlideUp 0.3s ease-out both' }}>
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative bg-white rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-slate-100">
+                
+                {/* Header */}
+                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+                    <div>
+                        <h2 className="text-xl font-extrabold text-slate-800">ประวัติการซ่อมบำรุง</h2>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                            {vehicle ? `ทะเบียน ${vehicle.license_plate} (${vehicle.brand} ${vehicle.model})` : 'กำลังโหลด...'}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="overflow-y-auto p-6 bg-slate-50/50 flex-1">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <div className="w-8 h-8 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin mb-4" />
+                            <p className="text-sm text-slate-500 font-medium">กำลังโหลดประวัติ...</p>
+                        </div>
+                    ) : repairs.length === 0 ? (
+                        <div className="text-center py-12 text-slate-500">ไม่พบประวัติการซ่อมบำรุงที่อนุมัติแล้วของรถคันนี้</div>
+                    ) : (
+                        <div className="space-y-4">
+                            {repairs.map(repair => (
+                                <div key={repair.request_id} className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-violet-300 hover:shadow-md transition-all">
+                                    <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                                        <div className="flex items-center gap-3">
+                                            <StatusBadge status={repair.status} />
+                                            <span className="text-sm font-bold text-slate-700">{repair.repair_type}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-lg font-extrabold text-violet-700">
+                                                ฿{(repair.total_cost || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <p className="text-sm text-slate-600 font-medium mb-4">{repair.description}</p>
+                                    
+                                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
+                                        <div className="flex items-center gap-1.5"><Calendar size={14} className="text-slate-400"/> วันที่: {new Date(repair.created_at).toLocaleDateString('th-TH')}</div>
+                                        {repair.mileage && <div className="flex items-center gap-1.5"><Gauge size={14} className="text-slate-400"/> เลขไมล์: {repair.mileage.toLocaleString()} กม.</div>}
+                                        {repair.garage?.name && <div className="flex items-center gap-1.5"><MapPin size={14} className="text-slate-400"/> อู่: {repair.garage.name}</div>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
 }
 
 /* ─── KPI Card ─── */
@@ -121,6 +211,7 @@ export default function ExecutiveDashboard() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [barHover, setBarHover] = useState(null);
+    const [selectedVehicleId, setSelectedVehicleId] = useState(null);
 
     useEffect(() => {
         api.get('/reports/executive')
@@ -152,7 +243,6 @@ export default function ExecutiveDashboard() {
     const yearlyExpenseTotal = stats.yearlyExpense || 0;
     const availabilityRate = stats.availabilityRate || 0;
     const totalMileage = stats.totalMileage || 0;
-    const pendingApprovals = stats.pendingApprovals || 0;
     const totalVehicles = stats.totalVehicles || 0;
     const readyVehicles = stats.readyVehicles || 0;
     const unavailableVehicles = stats.unavailableVehicles ?? Math.max(0, totalVehicles - readyVehicles);
@@ -230,12 +320,12 @@ export default function ExecutiveDashboard() {
                         <div className="flex flex-col items-center gap-2 sm:flex-row rounded-2xl px-5 py-4"
                             style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)' }}>
                             <div className="p-2.5 rounded-xl" style={{ background: 'rgba(245,158,11,0.2)' }}>
-                                <ClipboardList size={20} className="text-amber-400" />
+                                <Wrench size={20} className="text-amber-400" />
                             </div>
                             <div>
-                                <div className="text-xs text-slate-400 leading-none mb-0.5">รออนุมัติ</div>
+                                <div className="text-xs text-slate-400 leading-none mb-0.5">กำลังซ่อมบำรุง</div>
                                 <div className="text-2xl font-extrabold text-white leading-none">
-                                    {pendingApprovals} <span className="text-sm font-medium text-slate-300">รายการ</span>
+                                    {unavailableVehicles} <span className="text-sm font-medium text-slate-300">คัน</span>
                                 </div>
                             </div>
                         </div>
@@ -272,39 +362,6 @@ export default function ExecutiveDashboard() {
                         </div>
                     </div>
                 </div>
-            </div>
-
-            {/* ══════════════════════════════════════════
-                KPI STRIP — 3 quick-read cards
-            ══════════════════════════════════════════ */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <KpiCard
-                    label="ระยะทางสะสมรวม"
-                    value={totalMileage.toLocaleString('th-TH')}
-                    unit="กม."
-                    icon={Gauge}
-                    iconBg="linear-gradient(135deg,#ede9fe,#ddd6fe)"
-                    hoverAccent="text-violet-600"
-                    delay={80}
-                />
-                <KpiCard
-                    label="คำขอรออนุมัติ"
-                    value={pendingApprovals}
-                    unit="รายการ"
-                    icon={ClipboardList}
-                    iconBg="linear-gradient(135deg,#fef3c7,#fde68a)"
-                    hoverAccent="text-amber-600"
-                    delay={160}
-                />
-                <KpiCard
-                    label="พร้อมใช้งานจริง"
-                    value={`${readyVehicles} / ${totalVehicles}`}
-                    unit="คัน"
-                    icon={CheckCircle2}
-                    iconBg="linear-gradient(135deg,#d1fae5,#a7f3d0)"
-                    hoverAccent="text-emerald-600"
-                    delay={240}
-                />
             </div>
 
             {/* ══════════════════════════════════════════
@@ -523,7 +580,8 @@ export default function ExecutiveDashboard() {
                     )}
                     {topVehicles.map((tv, i) => (
                         <div key={tv.vehicle?.vehicle_id || tv.vehicle?.id || i}
-                            className="p-4 flex items-center gap-3 hover:bg-violet-50/40 transition-colors">
+                            onClick={() => setSelectedVehicleId(tv.vehicle?.vehicle_id || tv.vehicle?.id)}
+                            className="p-4 flex items-center gap-3 hover:bg-violet-50/60 transition-colors cursor-pointer group">
                             <RankBadge rank={i} />
                             <div className="flex-1 min-w-0">
                                 <p className="font-bold text-slate-800 text-sm">{tv.vehicle?.license_plate || 'ไม่ระบุ'}</p>
@@ -560,10 +618,8 @@ export default function ExecutiveDashboard() {
                             )}
                             {topVehicles.map((tv, i) => (
                                 <tr key={tv.vehicle?.vehicle_id || tv.vehicle?.id || i}
-                                    className="transition-colors duration-150"
-                                    style={{ cursor: 'default' }}
-                                    onMouseEnter={e => e.currentTarget.style.background = '#faf5ff'}
-                                    onMouseLeave={e => e.currentTarget.style.background = ''}
+                                    onClick={() => setSelectedVehicleId(tv.vehicle?.vehicle_id || tv.vehicle?.id)}
+                                    className="transition-colors duration-150 cursor-pointer hover:bg-violet-50/40 group"
                                 >
                                     <td className="px-6 py-4 text-center">
                                         <RankBadge rank={i} />
@@ -591,6 +647,13 @@ export default function ExecutiveDashboard() {
                     </table>
                 </div>
             </div>
+
+            {selectedVehicleId && (
+                <VehicleExpenseModal
+                    vehicleId={selectedVehicleId}
+                    onClose={() => setSelectedVehicleId(null)}
+                />
+            )}
         </div>
     );
 }

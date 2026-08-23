@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { CheckCircle, XCircle, ExternalLink, ImageOff } from 'lucide-react';
+import { CheckCircle, XCircle, ExternalLink, ImageOff, Paperclip } from 'lucide-react';
+import StatusBadge from '../../components/StatusBadge';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
 
@@ -21,7 +22,7 @@ export default function ApprovalsPage() {
         setProcessing(id);
         try {
             await api.patch(`/repairs/${id}/approve`, { approved, note });
-            toast.success(approved ? '✅ อนุมัติสำเร็จ' : '❌ ไม่อนุมัติเรียบร้อย');
+            toast.success(approved ? 'อนุมัติสำเร็จ' : 'ไม่อนุมัติเรียบร้อย');
             fetchData();
         } catch { toast.error('เกิดข้อผิดพลาด'); }
         setProcessing(null);
@@ -52,7 +53,7 @@ export default function ApprovalsPage() {
                         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
-                                    <span className="bg-purple-100 text-purple-700 border border-purple-200 px-2.5 py-1 rounded-full text-xs font-medium">⏳ รออนุมัติ</span>
+                                    <StatusBadge status="AWAITING_APPROVAL" />
                                     <span className="font-bold text-blue-600">REQ-{String(r.request_id).padStart(4, '0')}</span>
                                     <span className="text-slate-400 text-sm">{new Date(r.created_at || r.createdAt).toLocaleDateString('th-TH')}</span>
                                 </div>
@@ -77,7 +78,7 @@ export default function ApprovalsPage() {
                                 {/* ──── แสดงสลิป/ใบเสร็จ ──── */}
                                 <div className="mt-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
                                     <div className="flex items-center justify-between mb-2">
-                                        <p className="text-xs text-slate-500 font-medium">📎 หลักฐาน / สลิปใบเสร็จ</p>
+                                        <p className="text-xs text-slate-500 font-medium flex items-center gap-1"><Paperclip size={14} /> หลักฐาน / สลิปใบเสร็จ</p>
                                         {r.receipt_image && (
                                             <a
                                                 href={r.receipt_image}

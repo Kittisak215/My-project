@@ -33,6 +33,12 @@ exports.create = async (req, res) => {
             data: { vehicle_id: parseInt(vehicle_id), alert_type, last_service_mileage: parseInt(last_service_mileage), next_service_mileage: parseInt(next_service_mileage) },
             include: { vehicle: true }
         });
+        
+        try {
+            const socketIO = require('../socket');
+            socketIO.getIO().emit('new_notification');
+        } catch (e) { console.error('Socket emit error', e); }
+        
         res.status(201).json(alert);
     } catch (err) { res.status(400).json({ message: err.message }); }
 };

@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import clsx from 'clsx';
 
 /* ─── Animation Keyframes ─── */
@@ -304,27 +306,31 @@ export default function ExpenseReportPage() {
                 <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                         <label className="text-xs font-semibold text-slate-500 mb-1.5 block">ตั้งแต่วันที่</label>
-                        <input
-                            type="date"
-                            value={filters.from}
-                            onChange={e => {
-                                setFilters(f => ({ ...f, from: e.target.value }));
+                        <DatePicker
+                            selected={filters.from ? new Date(filters.from) : null}
+                            onChange={date => {
+                                const ymd = date ? date.toLocaleDateString('en-CA') : '';
+                                setFilters(f => ({ ...f, from: ymd }));
                                 setActivePreset('custom');
                             }}
-                            className="w-full h-10 border border-slate-200 rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-colors"
+                            dateFormat="dd/MM/yyyy"
+                            placeholderText="วว/ดด/ปปปป"
+                            className="w-full h-10 border border-slate-200 rounded-xl px-3 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-colors"
                         />
                     </div>
 
                     <div>
                         <label className="text-xs font-semibold text-slate-500 mb-1.5 block">ถึงวันที่</label>
-                        <input
-                            type="date"
-                            value={filters.to}
-                            onChange={e => {
-                                setFilters(f => ({ ...f, to: e.target.value }));
+                        <DatePicker
+                            selected={filters.to ? new Date(filters.to) : null}
+                            onChange={date => {
+                                const ymd = date ? date.toLocaleDateString('en-CA') : '';
+                                setFilters(f => ({ ...f, to: ymd }));
                                 setActivePreset('custom');
                             }}
-                            className="w-full h-10 border border-slate-200 rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-colors"
+                            dateFormat="dd/MM/yyyy"
+                            placeholderText="วว/ดด/ปปปป"
+                            className="w-full h-10 border border-slate-200 rounded-xl px-3 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-colors"
                         />
                     </div>
 
@@ -388,103 +394,106 @@ export default function ExpenseReportPage() {
             ══════════════════════════════════════════ */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div
-                    className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group"
-                    style={{ animation: 'fadeSlideUp 0.5s ease-out 0.1s both' }}
+                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-200"
+                    style={{ animation: 'fadeSlideUp 0.4s ease-out 0.05s both' }}
                 >
-                    <div className="absolute left-0 top-4 bottom-4 w-1 rounded-r-full bg-rose-500" />
-                    <div className="pl-3 flex items-center justify-between">
+                    <div className="flex items-start justify-between">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">ยอดรวมค่าใช้จ่าย</p>
-                            <h3 className="text-2xl font-extrabold text-rose-600">
+                            <p className="text-xs font-semibold text-slate-500 mb-1">ยอดรวมค่าใช้จ่าย</p>
+                            <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
                                 ฿{(data.totalAmount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </h3>
-                            <p className="text-xs text-slate-400 mt-1">จากรายการที่อนุมัติแล้ว</p>
+                            <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                จากรายการที่อนุมัติแล้ว
+                            </p>
                         </div>
-                        <div className="p-3 rounded-2xl bg-rose-50 text-rose-600 shrink-0">
-                            <TrendingUp size={22} />
+                        <div className="p-2.5 rounded-xl bg-violet-50 text-violet-600 shrink-0">
+                            <DollarSign size={20} />
                         </div>
                     </div>
                 </div>
 
                 <div
-                    className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group"
-                    style={{ animation: 'fadeSlideUp 0.5s ease-out 0.15s both' }}
+                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-200"
+                    style={{ animation: 'fadeSlideUp 0.4s ease-out 0.1s both' }}
                 >
-                    <div className="absolute left-0 top-4 bottom-4 w-1 rounded-r-full bg-violet-500" />
-                    <div className="pl-3 flex items-center justify-between">
+                    <div className="flex items-start justify-between">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">จำนวนรายการซ่อม</p>
-                            <h3 className="text-2xl font-extrabold text-slate-800">
-                                {data.total || 0} <span className="text-sm font-medium text-slate-400">รายการ</span>
+                            <p className="text-xs font-semibold text-slate-500 mb-1">จำนวนรายการซ่อม</p>
+                            <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
+                                {data.total || 0} <span className="text-sm font-normal text-slate-400">รายการ</span>
                             </h3>
-                            <p className="text-xs text-violet-600 font-medium mt-1">เฉลี่ย ฿{(data.avgAmount || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })} / รายการ</p>
+                            <p className="text-xs text-slate-400 mt-1.5">
+                                เฉลี่ย ฿{(data.avgAmount || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })} / รายการ
+                            </p>
                         </div>
-                        <div className="p-3 rounded-2xl bg-violet-50 text-violet-600 shrink-0">
-                            <FileText size={22} />
+                        <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
+                            <FileText size={20} />
                         </div>
                     </div>
                 </div>
 
                 <div
-                    className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group"
-                    style={{ animation: 'fadeSlideUp 0.5s ease-out 0.2s both' }}
+                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-200"
+                    style={{ animation: 'fadeSlideUp 0.4s ease-out 0.15s both' }}
                 >
-                    <div className="absolute left-0 top-4 bottom-4 w-1 rounded-r-full bg-blue-500" />
-                    <div className="pl-3 flex items-center justify-between">
+                    <div className="flex items-start justify-between">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">ค่าเฉลี่ยต่อรายการ</p>
-                            <h3 className="text-2xl font-extrabold text-slate-800">
+                            <p className="text-xs font-semibold text-slate-500 mb-1">ค่าเฉลี่ยต่อรายการ</p>
+                            <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
                                 ฿{(data.avgAmount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </h3>
-                            <p className="text-xs text-slate-400 mt-1">มูลค่าเฉลี่ยต่อการซ่อม</p>
+                            <p className="text-xs text-slate-400 mt-1.5">มูลค่าเฉลี่ยต่อการซ่อม</p>
                         </div>
-                        <div className="p-3 rounded-2xl bg-blue-50 text-blue-600 shrink-0">
-                            <DollarSign size={22} />
+                        <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 shrink-0">
+                            <TrendingUp size={20} />
                         </div>
                     </div>
                 </div>
 
                 <div
-                    className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group"
-                    style={{ animation: 'fadeSlideUp 0.5s ease-out 0.25s both' }}
+                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-200"
+                    style={{ animation: 'fadeSlideUp 0.4s ease-out 0.2s both' }}
                 >
-                    <div className="absolute left-0 top-4 bottom-4 w-1 rounded-r-full bg-emerald-500" />
-                    <div className="pl-3 flex items-center justify-between">
+                    <div className="flex items-start justify-between">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">ค่าใช้จ่ายสูงสุดต่อครั้ง</p>
-                            <h3 className="text-2xl font-extrabold text-emerald-600">
+                            <p className="text-xs font-semibold text-slate-500 mb-1">ค่าใช้จ่ายสูงสุดต่อครั้ง</p>
+                            <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
                                 ฿{(data.maxAmount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </h3>
-                            <p className="text-xs text-emerald-600 font-medium mt-1">ยอดต่อบิลสูงสุด</p>
+                            <p className="text-xs text-slate-400 mt-1.5">ยอดต่อบิลสูงสุด</p>
                         </div>
-                        <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 shrink-0">
-                            <CheckCircle2 size={22} />
+                        <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
+                            <CheckCircle2 size={20} />
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* ══════════════════════════════════════════
-                CATEGORY BREAKDOWN (IF AVAILABLE)
+                CATEGORY BREAKDOWN
             ══════════════════════════════════════════ */}
             {data.categoryBreakdown && data.categoryBreakdown.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {data.categoryBreakdown.map(cat => {
-                        const info = categoryMap[cat.type] || { label: cat.type, bg: 'bg-slate-50' };
-                        return (
-                            <div key={cat.type} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center justify-between">
-                                <div>
-                                    <span className="text-xs font-semibold text-slate-400 block mb-0.5">{info.label}</span>
-                                    <span className="text-lg font-bold text-slate-800">
-                                        ฿{cat.totalCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/60 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-violet-600"></span>
+                        <span>สัดส่วนตามประเภทการซ่อม:</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 flex-wrap flex-1 md:justify-end">
+                        {data.categoryBreakdown.map(cat => {
+                            const info = categoryMap[cat.type] || { label: cat.type };
+                            return (
+                                <div key={cat.type} className="bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 shadow-2xs flex items-center gap-3 text-xs">
+                                    <span className="font-medium text-slate-600">{info.label}</span>
+                                    <span className="font-bold text-slate-900">฿{cat.totalCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                                    <span className="px-2 py-0.5 rounded-lg bg-violet-50 text-violet-700 text-[11px] font-semibold border border-violet-100/60">
+                                        {cat.count} ครั้ง
                                     </span>
                                 </div>
-                                <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-violet-50 text-violet-700 border border-violet-100">
-                                    {cat.count} ครั้ง
-                                </span>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                 </div>
             )}
 

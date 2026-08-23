@@ -14,6 +14,9 @@ exports.getAll = async (req, res) => {
             ];
         }
         if (status) where.status = status;
+        if (req.query.is_active !== undefined && req.query.is_active !== '') {
+            where.is_active = req.query.is_active === 'true';
+        }
 
         const [vehicles, total] = await Promise.all([
             prisma.vehicle.findMany({
@@ -97,7 +100,10 @@ exports.update = async (req, res) => {
 
 exports.remove = async (req, res) => {
     try {
-        await prisma.vehicle.delete({ where: { vehicle_id: parseInt(req.params.id) } });
-        res.json({ message: 'Vehicle deleted' });
+        await prisma.vehicle.update({
+            where: { vehicle_id: parseInt(req.params.id) },
+            data: { is_active: false, driver_id: null }
+        });
+        res.json({ message: 'Vehicle deactivated' });
     } catch (err) { res.status(400).json({ message: err.message }); }
 };

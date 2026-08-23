@@ -5,8 +5,8 @@ exports.adminDashboard = async (req, res) => {
         const [totalVehicles, readyVehicles, pendingRepairs, overdueAlerts, maintenanceAlerts, recentRepairs, monthlyExpenseAgg] = await Promise.all([
             prisma.vehicle.count(),
             prisma.vehicle.count({ where: { status: 'READY' } }),
-            prisma.repairRequest.count({ where: { status: 'PENDING' } }),
-            prisma.maintenanceAlert.count({ where: { is_resolved: false } }),
+            prisma.repairRequest.groupBy({ by: ['status'], _count: { status: true } }),
+            prisma.maintenanceAlert.groupBy({ by: ['alert_type'], where: { is_resolved: false }, _count: { alert_type: true } }),
             prisma.maintenanceAlert.findMany({
                 where: { is_resolved: false },
                 include: { vehicle: { include: { driver: true } } },
@@ -25,8 +25,21 @@ exports.adminDashboard = async (req, res) => {
             }),
         ]);
 
+        const repairStats = pendingRepairs.reduce((acc, curr) => ({ ...acc, [curr.status]: curr._count.status }), {});
+        const alertStats = overdueAlerts.reduce((acc, curr) => ({ ...acc, [curr.alert_type]: curr._count.alert_type }), {});
+        const totalPendingRepairs = (repairStats.PENDING || 0) + (repairStats.IN_PROGRESS || 0) + (repairStats.AWAITING_APPROVAL || 0);
+        const totalAlerts = (alertStats.MILEAGE || 0) + (alertStats.TIME || 0);
+
         res.json({
-            stats: { totalVehicles, readyVehicles, pendingRepairs, overdueAlerts, monthlyExpense: monthlyExpenseAgg._sum.total_cost || 0 },
+            stats: { 
+                totalVehicles, 
+                readyVehicles, 
+                pendingRepairs: totalPendingRepairs, 
+                repairBreakdown: repairStats,
+                overdueAlerts: totalAlerts, 
+                alertBreakdown: alertStats,
+                monthlyExpense: monthlyExpenseAgg._sum.total_cost || 0 
+            },
             maintenanceAlerts,
             recentRepairs,
         });

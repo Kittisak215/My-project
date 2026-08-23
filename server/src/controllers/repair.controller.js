@@ -4,7 +4,7 @@ const repairIncludes = {
     vehicle: {
         include: {
             vehicleType: true,
-            mileageLogs: { orderBy: { mileage_id: 'desc' }, take: 1 }
+            mileageLogs: { orderBy: { record_date: 'desc' }, take: 1 }
         }
     },
     driver: true,
@@ -47,9 +47,24 @@ exports.getById = async (req, res) => {
 
 exports.create = async (req, res) => {
     try {
-        const { vehicle_id, driver_id, garage_id, total_cost, ...rest } = req.body;
+        const {
+            vehicle_id, driver_id, garage_id, total_cost, estimated_cost,
+            repair_start_date, estimated_end_date, ...rest
+        } = req.body;
+
         // If driver, use their own driver_id
         const driverId = req.user.role === 'DRIVER' ? req.user.driver_id : parseInt(driver_id);
+
+        // Validate: DRIVER can only submit repair for their own vehicles
+        if (req.user.role === 'DRIVER') {
+            const vehicle = await prisma.vehicle.findUnique({
+                where: { vehicle_id: parseInt(vehicle_id) },
+                select: { driver_id: true }
+            });
+            if (!vehicle || vehicle.driver_id !== driverId) {
+                return res.status(403).json({ message: 'ไม่มีสิทธิ์แจ้งซ่อมยานพาหนะคันนี้' });
+            }
+        }
 
         // Auto set to AWAITING_APPROVAL if emergency
         let status = rest.status;
@@ -63,16 +78,28 @@ exports.create = async (req, res) => {
                 driver_id: driverId,
                 ...(garage_id ? { garage_id: parseInt(garage_id) } : {}),
                 ...(total_cost ? { total_cost: parseFloat(total_cost) } : {}),
+                ...(estimated_cost ? { estimated_cost: parseFloat(estimated_cost) } : {}),
+                ...(repair_start_date ? { repair_start_date: new Date(repair_start_date) } : {}),
+                ...(estimated_end_date ? { estimated_end_date: new Date(estimated_end_date) } : {}),
             },
             include: repairIncludes,
         });
+
+        try {
+            const socketIO = require('../socket');
+            socketIO.getIO().emit('new_notification');
+        } catch (e) { console.error('Socket emit error', e); }
+
         res.status(201).json(repair);
     } catch (err) { res.status(400).json({ message: err.message }); }
 };
 
 exports.update = async (req, res) => {
     try {
-        const { vehicle_id, driver_id, garage_id, total_cost, ...rest } = req.body;
+        const {
+            vehicle_id, driver_id, garage_id, total_cost, estimated_cost,
+            repair_start_date, estimated_end_date, ...rest
+        } = req.body;
         const repair = await prisma.repairRequest.update({
             where: { request_id: parseInt(req.params.id) },
             data: {
@@ -81,6 +108,9 @@ exports.update = async (req, res) => {
                 ...(driver_id ? { driver_id: parseInt(driver_id) } : {}),
                 ...(garage_id ? { garage_id: parseInt(garage_id) } : {}),
                 ...(total_cost ? { total_cost: parseFloat(total_cost) } : {}),
+                ...(estimated_cost !== undefined ? { estimated_cost: estimated_cost ? parseFloat(estimated_cost) : null } : {}),
+                ...(repair_start_date ? { repair_start_date: new Date(repair_start_date) } : {}),
+                ...(estimated_end_date ? { estimated_end_date: new Date(estimated_end_date) } : {}),
             },
             include: repairIncludes,
         });
@@ -90,23 +120,106 @@ exports.update = async (req, res) => {
 
 exports.updateStatus = async (req, res) => {
     try {
-        const { status, garage_id, total_cost, note, repair_detail, repair_start_date, repair_end_date } = req.body;
+        const {
+            status, garage_id, total_cost, estimated_cost,
+            note, repair_detail, repair_start_date, repair_end_date,
+            estimated_end_date, oil_grade
+        } = req.body;
+
         const repair = await prisma.repairRequest.update({
             where: { request_id: parseInt(req.params.id) },
             data: {
                 ...(status ? { status } : {}),
                 ...(garage_id ? { garage_id: parseInt(garage_id) } : {}),
                 ...(total_cost !== undefined ? { total_cost: parseFloat(total_cost) } : {}),
+                ...(estimated_cost !== undefined ? { estimated_cost: estimated_cost ? parseFloat(estimated_cost) : null } : {}),
                 ...(note ? { note } : {}),
                 ...(repair_detail ? { repair_detail } : {}),
                 ...(repair_start_date ? { repair_start_date: new Date(repair_start_date) } : {}),
                 ...(repair_end_date ? { repair_end_date: new Date(repair_end_date) } : {}),
+                ...(estimated_end_date ? { estimated_end_date: new Date(estimated_end_date) } : {}),
+                ...(oil_grade ? { oil_grade } : {}),
             },
             include: repairIncludes,
         });
+
+        // Auto-update Maintenance Alert when repair is COMPLETED
+        if (status === 'COMPLETED' && repair.mileage_at_repair && repair.vehicle_id) {
+            await autoUpdateMaintenanceAlerts(repair.vehicle_id, repair.mileage_at_repair, repair.repair_type, oil_grade || null);
+        }
+
+        try {
+            const socketIO = require('../socket');
+            socketIO.getIO().emit('new_notification');
+        } catch (e) { console.error('Socket emit error', e); }
+
         res.json(repair);
     } catch (err) { res.status(400).json({ message: err.message }); }
 };
+
+// ระยะทางเปลี่ยนถ่ายน้ำมันเครื่องตามเกรด
+const OIL_GRADE_INTERVALS = {
+    MINERAL: 5000,
+    SEMI_SYNTHETIC: 7000,
+    FULLY_SYNTHETIC: 10000,
+};
+
+/**
+ * เมื่อซ่อมเสร็จ ให้อัปเดต MaintenanceAlert ของรถคันนั้นโดยอัตโนมัติ
+ * นำ mileage_at_repair มาตั้งเป็น last_service_mileage และคำนวณ next_service_mileage ใหม่
+ * หากมี oil_grade ให้ใช้ระยะทางตามเกรดแทนค่า default ของประเภทรถ
+ */
+async function autoUpdateMaintenanceAlerts(vehicleId, mileageAtRepair, repairType, oilGrade = null) {
+    try {
+        const vehicle = await prisma.vehicle.findUnique({
+            where: { vehicle_id: vehicleId },
+            include: {
+                vehicleType: true,
+                alerts: { where: { is_resolved: false } }
+            }
+        });
+        if (!vehicle) return;
+
+        const defaultOilInterval = vehicle.oil_change_interval_km || vehicle.vehicleType?.oil_change_interval_km || 10000;
+        const tireInterval = vehicle.tire_change_interval_km || vehicle.vehicleType?.tire_change_interval_km || 50000;
+
+        // ถ้ามีการระบุเกรดน้ำมัน ให้ใช้ระยะตามเกรด มิฉะนั้นใช้ค่า default ของประเภทรถ
+        const oilInterval = oilGrade && OIL_GRADE_INTERVALS[oilGrade]
+            ? OIL_GRADE_INTERVALS[oilGrade]
+            : defaultOilInterval;
+
+        for (const alert of vehicle.alerts) {
+            let shouldUpdate = false;
+
+            // ถ้าซ่อมทั่วไปอาจเปลี่ยนน้ำมัน ให้อัปเดต OIL_CHANGE alert
+            if (alert.alert_type === 'OIL_CHANGE' && mileageAtRepair >= alert.last_service_mileage) {
+                await prisma.maintenanceAlert.update({
+                    where: { alert_id: alert.alert_id },
+                    data: {
+                        last_service_mileage: mileageAtRepair,
+                        next_service_mileage: mileageAtRepair + oilInterval,
+                        is_resolved: false,
+                    }
+                });
+                shouldUpdate = true;
+            }
+
+            // ถ้าไมล์ผ่านกำหนดซ่อมแล้ว อัปเดตรอบถัดไป
+            if (!shouldUpdate && mileageAtRepair >= alert.next_service_mileage) {
+                const interval = alert.alert_type === 'TIRE_CHANGE' ? tireInterval : oilInterval;
+                await prisma.maintenanceAlert.update({
+                    where: { alert_id: alert.alert_id },
+                    data: {
+                        last_service_mileage: mileageAtRepair,
+                        next_service_mileage: mileageAtRepair + interval,
+                    }
+                });
+            }
+        }
+    } catch (err) {
+        console.error('autoUpdateMaintenanceAlerts error:', err.message);
+    }
+}
 
 exports.approve = async (req, res) => {
     try {

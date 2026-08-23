@@ -54,10 +54,17 @@ export default function RegisterPage() {
                             <label className="block text-sm font-medium text-slate-700 mb-1">เบอร์โทรศัพท์</label>
                             <div className="relative">
                                 <Phone size={16} className="absolute inset-y-0 left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input {...register('phone')}
+                                <input {...register('phone', {
+                                    required: 'กรุณากรอกเบอร์โทรศัพท์',
+                                    pattern: {
+                                        value: /^0\d{9}$/,
+                                        message: 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลักและขึ้นต้นด้วย 0'
+                                    }
+                                })}
                                     className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 focus:bg-white transition-colors"
-                                    placeholder="08X-XXX-XXXX" />
+                                    placeholder="08XXXXXXXX" />
                             </div>
+                            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
                         </div>
 
                         <div>

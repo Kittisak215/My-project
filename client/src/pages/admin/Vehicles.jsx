@@ -5,9 +5,10 @@ import { toast } from 'react-toastify';
 import { useForm } from 'react-hook-form';
 import clsx from 'clsx';
 
-const StatusBadge = ({ status }) => {
-    const map = { READY: 'bg-green-100 text-green-700', IN_REPAIR: 'bg-amber-100 text-amber-700', INACTIVE: 'bg-slate-100 text-slate-600' };
-    const label = { READY: '🟢 พร้อมใช้งาน', IN_REPAIR: '🛠️ กำลังซ่อม', INACTIVE: '⚫ ปลดระวาง' };
+const StatusBadge = ({ status, isActive }) => {
+    if (isActive === false) return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">⚫ ปลดระวาง</span>;
+    const map = { READY: 'bg-green-100 text-green-700', IN_REPAIR: 'bg-amber-100 text-amber-700' };
+    const label = { READY: '🟢 พร้อมใช้งาน', IN_REPAIR: '🛠️ กำลังซ่อม' };
     return <span className={clsx('px-2.5 py-1 rounded-full text-xs font-medium', map[status])}>{label[status]}</span>;
 };
 
@@ -55,7 +56,7 @@ export default function VehiclesPage() {
 
     useEffect(() => { fetchVehicles(); fetchDrivers(); }, [search, status, page]);
 
-    const openCreate = () => { setEditing(null); reset({ status: 'READY' }); setShowModal(true); };
+    const openCreate = () => { setEditing(null); reset({ status: 'READY', is_active: 'true' }); setShowModal(true); };
     const openEdit = (v) => {
         setEditing(v);
         reset({
@@ -68,7 +69,8 @@ export default function VehiclesPage() {
             status: v.status,
             driver_id: v.driver_id ? v.driver_id.toString() : '',
             oil_change_interval_km: v.oil_change_interval_km || '',
-            tire_change_interval_km: v.tire_change_interval_km || ''
+            tire_change_interval_km: v.tire_change_interval_km || '',
+            is_active: v.is_active !== false ? 'true' : 'false'
         });
         setShowModal(true);
     };
@@ -85,7 +87,8 @@ export default function VehiclesPage() {
                 status: data.status,
                 driver_id: data.driver_id ? parseInt(data.driver_id) : null,
                 oil_change_interval_km: data.oil_change_interval_km ? parseInt(data.oil_change_interval_km) : null,
-                tire_change_interval_km: data.tire_change_interval_km ? parseInt(data.tire_change_interval_km) : null
+                tire_change_interval_km: data.tire_change_interval_km ? parseInt(data.tire_change_interval_km) : null,
+                is_active: data.is_active === 'true'
             };
             if (editing) await api.put(`/vehicles/${editing.vehicle_id}`, payload);
             else await api.post('/vehicles', payload);
@@ -93,12 +96,6 @@ export default function VehiclesPage() {
             setShowModal(false);
             fetchVehicles();
         } catch (err) { toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด'); }
-    };
-
-    const handleDelete = async (id) => {
-        if (!window.confirm('ยืนยันการลบยานพาหนะ? ข้อมูลที่เกี่ยวโยงอาจทำให้ลบไม่ได้ ให้ใช้การเปลี่ยนสถานะเป็นปลดระวางแทน')) return;
-        try { await api.delete(`/vehicles/${id}`); toast.success('ลบสำเร็จ'); fetchVehicles(); }
-        catch { toast.error('ลบไม่สำเร็จ (มีข้อมูลซ่อมผูกอยู่ แนะนำให้แก้ไขเป็นสถานะปลดระวางแทน)'); }
     };
 
     const totalPages = Math.ceil(total / limit);
@@ -131,12 +128,12 @@ export default function VehiclesPage() {
                 {loading && <p className="text-center py-8 text-slate-400">กำลังโหลด...</p>}
                 {!loading && vehicles.length === 0 && <p className="text-center py-8 text-slate-400">ไม่พบข้อมูล</p>}
                 {vehicles.map((v) => (
-                    <div key={v.vehicle_id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                    <div key={v.vehicle_id} className={clsx("bg-white rounded-xl border border-slate-200 p-4 shadow-sm", !v.is_active && "opacity-70")}>
                         <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap mb-1">
                                     <p className="font-bold text-slate-800 text-base">{v.license_plate}</p>
-                                    <StatusBadge status={v.status} />
+                                    <StatusBadge status={v.status} isActive={v.is_active} />
                                 </div>
                                 <p className="text-sm text-slate-600">{v.vehicleType?.type_name || 'ไม่ระบุ'} • {v.brand} {v.model}</p>
                                 <p className="text-xs text-slate-400">สี{v.color || '-'} / ปี {v.year || '-'}</p>
@@ -148,8 +145,7 @@ export default function VehiclesPage() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-1 ml-2 shrink-0">
-                                <button onClick={() => openEdit(v)} className="px-3 py-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200">แก้ไข</button>
-                                <button onClick={() => handleDelete(v.vehicle_id)} className="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200">ลบ</button>
+                                <button onClick={() => openEdit(v)} className="px-3.5 py-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200">แก้ไข</button>
                             </div>
                         </div>
                     </div>
@@ -177,7 +173,7 @@ export default function VehiclesPage() {
                             {loading && <tr><td colSpan={9} className="text-center py-8 text-slate-400">กำลังโหลด...</td></tr>}
                             {!loading && vehicles.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate-400">ไม่พบข้อมูล</td></tr>}
                             {vehicles.map((v) => (
-                                <tr key={v.vehicle_id} className="hover:bg-slate-50 transition-colors">
+                                <tr key={v.vehicle_id} className={clsx("hover:bg-slate-50 transition-colors", !v.is_active && "opacity-70")}>
                                     <td className="px-4 py-3 text-center text-slate-500">#{v.vehicle_id}</td>
                                     <td className="px-4 py-3 font-semibold text-slate-800">{v.license_plate}</td>
                                     <td className="px-4 py-3 text-slate-600">{v.vehicleType?.type_name || 'ไม่ระบุ'}</td>
@@ -191,12 +187,9 @@ export default function VehiclesPage() {
                                         <div className="text-slate-600"><span className="text-slate-400 font-medium">ยาง:</span> {v.tire_change_interval_km?.toLocaleString() || v.vehicleType?.tire_change_interval_km?.toLocaleString() || '-'} กม.</div>
                                     </td>
                                     <td className="px-4 py-3 text-right font-medium text-slate-800">{(v.current_mileage || 0).toLocaleString()} กม.</td>
-                                    <td className="px-4 py-3 text-center"><StatusBadge status={v.status} /></td>
+                                    <td className="px-4 py-3 text-center"><StatusBadge status={v.status} isActive={v.is_active} /></td>
                                     <td className="px-4 py-3 text-center">
-                                        <div className="flex items-center justify-center space-x-2">
-                                            <button onClick={() => openEdit(v)} className="px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200">แก้ไข</button>
-                                            <button onClick={() => handleDelete(v.vehicle_id)} className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200">ลบ</button>
-                                        </div>
+                                        <button onClick={() => openEdit(v)} className="px-3.5 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200">แก้ไข</button>
                                     </td>
                                 </tr>
                             ))}
@@ -264,13 +257,17 @@ export default function VehiclesPage() {
                                 <input {...register('oil_change_interval_km')} type="number" placeholder="ค่าเริ่มต้นตามประเภทรถ" className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 placeholder-slate-400" /></div>
                             <div><label className="text-sm font-medium text-slate-700">ระยะเปลี่ยนยาง (กม.)</label>
                                 <input {...register('tire_change_interval_km')} type="number" placeholder="ค่าเริ่มต้นตามประเภทรถ" className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 placeholder-slate-400" /></div>
-                            <div><label className="text-sm font-medium text-slate-700">สถานะ</label>
+                            <div><label className="text-sm font-medium text-slate-700">สถานะตัวรถ</label>
                                 <select {...register('status')} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
                                     <option value="READY">พร้อมใช้งาน</option>
                                     <option value="IN_REPAIR">กำลังซ่อม</option>
-                                    <option value="INACTIVE">ปลดระวาง</option>
                                 </select></div>
-                            <div><label className="text-sm font-medium text-slate-700">ผู้รับผิดชอบ</label>
+                            <div><label className="text-sm font-medium text-slate-700">สถานะการทำงาน</label>
+                                <select {...register('is_active')} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                                    <option value="true">🟢 ใช้งาน</option>
+                                    <option value="false">⚫ ปลดระวาง (ซ่อนจากระบบ)</option>
+                                </select></div>
+                            <div className="col-span-2"><label className="text-sm font-medium text-slate-700">ผู้รับผิดชอบ</label>
                                 <select {...register('driver_id')} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
                                     <option value="">ไม่ระบุ</option>
                                     {drivers.map(d => <option key={d.driver_id} value={d.driver_id}>{d.full_name}</option>)}

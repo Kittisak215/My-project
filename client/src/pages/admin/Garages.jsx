@@ -3,6 +3,12 @@ import { Plus, Search, X } from 'lucide-react';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
 import { useForm } from 'react-hook-form';
+import clsx from 'clsx';
+
+const StatusBadge = ({ isActive }) => {
+    if (isActive === false) return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">⚫ ระงับ</span>;
+    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">🟢 ใช้งาน</span>;
+};
 
 const Modal = ({ title, onClose, children }) => (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -41,7 +47,7 @@ export default function GaragesPage() {
 
     useEffect(() => { fetchGarages(); }, [search, specFilter, page]);
 
-    const openCreate = () => { setEditing(null); reset({ specialization: ['GENERAL'] }); setShowModal(true); };
+    const openCreate = () => { setEditing(null); reset({ specialization: ['GENERAL'], is_active: 'true' }); setShowModal(true); };
     const openEdit = (g) => {
         setEditing(g);
         reset({
@@ -52,24 +58,23 @@ export default function GaragesPage() {
             district: g.district,
             province: g.province,
             postal_code: g.postal_code,
-            specialization: g.specialization || ['GENERAL']
+            specialization: g.specialization || ['GENERAL'],
+            is_active: g.is_active !== false ? 'true' : 'false'
         });
         setShowModal(true);
     };
 
     const onSubmit = async (data) => {
         try {
-            if (editing) await api.put(`/garages/${editing.garage_id}`, data);
-            else await api.post('/garages', data);
+            const payload = {
+                ...data,
+                is_active: data.is_active === 'true'
+            };
+            if (editing) await api.put(`/garages/${editing.garage_id}`, payload);
+            else await api.post('/garages', payload);
             toast.success(editing ? 'แก้ไขสำเร็จ' : 'เพิ่มสำเร็จ');
             setShowModal(false); fetchGarages();
         } catch (err) { toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด'); }
-    };
-
-    const handleDelete = async (id) => {
-        if (!window.confirm('ยืนยันการลบ?')) return;
-        try { await api.delete(`/garages/${id}`); toast.success('ลบสำเร็จ'); fetchGarages(); }
-        catch { toast.error('ลบไม่สำเร็จ (อาจมีข้อมูลการซ่อมผูกอยู่)'); }
     };
 
     const specLabels = { 'GENERAL': 'ทั่วไป', 'ENGINE': 'เครื่องยนต์', 'ELECTRICAL': 'ระบบไฟ', 'SUSPENSION': 'ช่วงล่าง', 'BODY_PAINT': 'ตัวถังและสี', 'TIRES': 'ยาง' };
@@ -105,11 +110,12 @@ export default function GaragesPage() {
                 {loading && <p className="text-center py-8 text-slate-400">กำลังโหลด...</p>}
                 {!loading && garages.length === 0 && <p className="text-center py-8 text-slate-400">ไม่พบข้อมูล</p>}
                 {garages.map(g => (
-                    <div key={g.garage_id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                    <div key={g.garage_id} className={clsx("bg-white rounded-xl border border-slate-200 p-4 shadow-sm", g.is_active === false && "opacity-70")}>
                         <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                     <span className="text-xs text-slate-400">#{g.garage_id}</span>
+                                    <StatusBadge isActive={g.is_active} />
                                 </div>
                                 <p className="font-semibold text-slate-800">{g.garage_name}</p>
                                 <p className="text-sm text-slate-500">{g.phone || '-'}</p>
@@ -123,8 +129,7 @@ export default function GaragesPage() {
                                 )}
                             </div>
                             <div className="flex items-center gap-1 ml-2 shrink-0">
-                                <button onClick={() => openEdit(g)} className="px-3 py-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200">แก้ไข</button>
-                                <button onClick={() => handleDelete(g.garage_id)} className="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200">ลบ</button>
+                                <button onClick={() => openEdit(g)} className="px-3.5 py-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200">แก้ไข</button>
                             </div>
                         </div>
                     </div>
@@ -141,13 +146,14 @@ export default function GaragesPage() {
                             <th className="px-6 py-4 font-semibold">ความเชี่ยวชาญ</th>
                             <th className="px-6 py-4 font-semibold">เบอร์โทรศัพท์</th>
                             <th className="px-6 py-4 font-semibold">ที่อยู่</th>
+                            <th className="px-6 py-4 font-semibold text-center">สถานะ</th>
                             <th className="px-6 py-4 font-semibold text-center">จัดการ</th>
                         </tr></thead>
                         <tbody className="divide-y divide-slate-100">
-                            {loading && <tr><td colSpan={6} className="text-center py-8 text-slate-400">กำลังโหลด...</td></tr>}
-                            {!loading && garages.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400">ไม่พบข้อมูล</td></tr>}
+                            {loading && <tr><td colSpan={7} className="text-center py-8 text-slate-400">กำลังโหลด...</td></tr>}
+                            {!loading && garages.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate-400">ไม่พบข้อมูล</td></tr>}
                             {garages.map(g => (
-                                <tr key={g.garage_id} className="hover:bg-slate-50 transition-colors">
+                                <tr key={g.garage_id} className={clsx("hover:bg-slate-50 transition-colors", g.is_active === false && "opacity-70")}>
                                     <td className="px-6 py-4 text-slate-500">#{g.garage_id}</td>
                                     <td className="px-6 py-4">
                                         <div className="font-semibold text-slate-800">{g.garage_name}</div>
@@ -164,10 +170,10 @@ export default function GaragesPage() {
                                         {[g.address, g.sub_district, g.district, g.province, g.postal_code].filter(Boolean).join(' ') || '-'}
                                     </td>
                                     <td className="px-6 py-4 text-center">
-                                        <div className="flex items-center justify-center space-x-2">
-                                            <button onClick={() => openEdit(g)} className="px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200">แก้ไข</button>
-                                            <button onClick={() => handleDelete(g.garage_id)} className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200">ลบ</button>
-                                        </div>
+                                        <StatusBadge isActive={g.is_active} />
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <button onClick={() => openEdit(g)} className="px-3.5 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200">แก้ไข</button>
                                     </td>
                                 </tr>
                             ))}
@@ -229,6 +235,14 @@ export default function GaragesPage() {
                                 <input {...register('province')} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" /></div>
                             <div><label className="text-sm font-medium text-slate-700">รหัสไปรษณีย์</label>
                                 <input {...register('postal_code')} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" /></div>
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-medium text-slate-700">สถานะการติดต่อ</label>
+                            <select {...register('is_active')} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                                <option value="true">🟢 ใช้งาน (เปิดรับงานซ่อม)</option>
+                                <option value="false">⚫ ระงับการติดต่อ (ซ่อนจากระบบ)</option>
+                            </select>
                         </div>
 
                         <div className="flex justify-end gap-3 pt-4 border-t">

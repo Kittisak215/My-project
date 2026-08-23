@@ -52,7 +52,7 @@ async function main() {
             create: { username: u, password_hash: execHash, role: 'EXECUTIVE', full_name: 'ผู้อำนวยการ', is_active: true },
         });
     }
-    for (const u of ['Driver', 'driver']) {
+    for (const u of ['Driver']) {
         await prisma.user.upsert({
             where: { username: u }, update: {},
             create: { username: u, password_hash: driverHash, role: 'DRIVER', full_name: driver1.full_name, driver_id: driver1.driver_id, is_active: true },

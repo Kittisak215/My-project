@@ -14,8 +14,15 @@ const mileageRoutes = require('./routes/mileage.routes');
 const reportRoutes = require('./routes/report.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const userRoutes = require('./routes/user.routes');
+const notificationRoutes = require('./routes/notification.routes');
+
+const http = require('http');
+const socketIO = require('./socket');
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIO.init(server);
+
 const PORT = process.env.PORT || 5000;
 
 // Middleware
@@ -36,6 +43,7 @@ app.use('/api/mileage', mileageRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -48,6 +56,6 @@ app.use((err, req, res, next) => {
     res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`🚀 V-Maintenance Server running on http://localhost:${PORT}`);
 });

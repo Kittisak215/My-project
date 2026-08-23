@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // =============================================
@@ -80,6 +81,7 @@ model Vehicle {
   status                  VehicleStatus      @default(READY)
   oil_change_interval_km  Int?
   tire_change_interval_km Int?
+  is_active               Boolean            @default(true)
   created_at              DateTime           @default(now())
   mileageLogs             MileageLog[]
   repairs                 RepairRequest[]
@@ -100,7 +102,8 @@ model MileageLog {
   mileage_id    Int      @id @default(autoincrement())
   vehicle       Vehicle  @relation(fields: [vehicle_id], references: [vehicle_id])
   vehicle_id    Int
-  record_month  DateTime @db.Date
+  record_date   DateTime @default(now()) @db.Date
+  record_month  DateTime? @db.Date
   mileage_start Int
   mileage_end   Int
   distance_km   Int?
@@ -142,27 +145,36 @@ enum GarageSpecialization {
 // คำร้องซ่อม (RepairRequest)
 // =============================================
 model RepairRequest {
-  request_id        Int          @id @default(autoincrement())
-  vehicle           Vehicle      @relation(fields: [vehicle_id], references: [vehicle_id])
-  vehicle_id        Int
-  driver            Driver       @relation(fields: [driver_id], references: [driver_id])
-  driver_id         Int
-  request_date      DateTime     @default(now())
-  issue_description String       @db.Text
-  mileage_at_repair Int?
-  repair_type       RepairType   @default(GENERAL)
-  status            RepairStatus @default(PENDING)
-  garage            Garage?      @relation(fields: [garage_id], references: [garage_id])
-  garage_id         Int?
-  repair_start_date DateTime?    @db.Date
-  repair_end_date   DateTime?    @db.Date
-  repair_detail     String?      @db.Text
-  receipt_image     String?      @db.VarChar(500)
-  total_cost        Decimal?     @db.Decimal(10, 2)
-  note              String?      @db.Text
-  created_at        DateTime     @default(now())
+  request_id             Int          @id @default(autoincrement())
+  vehicle                Vehicle      @relation(fields: [vehicle_id], references: [vehicle_id])
+  vehicle_id             Int
+  driver                 Driver       @relation(fields: [driver_id], references: [driver_id])
+  driver_id              Int
+  request_date           DateTime     @default(now())
+  issue_description      String       @db.Text
+  mileage_at_repair      Int?
+  repair_type            RepairType   @default(GENERAL)
+  status                 RepairStatus @default(PENDING)
+  garage                 Garage?      @relation(fields: [garage_id], references: [garage_id])
+  garage_id              Int?
+  estimated_cost         Decimal?     @db.Decimal(10, 2)
+  repair_start_date      DateTime?    @db.Date
+  estimated_end_date     DateTime?    @db.Date
+  repair_end_date        DateTime?    @db.Date
+  repair_detail          String?      @db.Text
+  receipt_image          String?      @db.VarChar(500)
+  total_cost             Decimal?     @db.Decimal(10, 2)
+  note                   String?      @db.Text
+  oil_grade              OilGrade?    // เกรดน้ำมันเครื่องที่ใช้ (กรอกเฉพาะตอนซ่อมเสร็จและมีการเปลี่ยนถ่ายน้ำมัน)
+  created_at             DateTime     @default(now())
 
   @@map("repair_requests")
+}
+
+enum OilGrade {
+  MINERAL         // น้ำมันธรรมดา (5,000 กม.)
+  SEMI_SYNTHETIC  // กึ่งสังเคราะห์ (7,000 กม.)
+  FULLY_SYNTHETIC // สังเคราะห์แท้ (10,000 กม.)
 }
 
 enum RepairType {

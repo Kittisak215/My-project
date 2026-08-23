@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Car, Wrench, Bell, Banknote, RefreshCw, ShieldCheck, Activity, Zap, CheckCircle2, AlertTriangle, ClipboardList } from 'lucide-react';
+import StatusBadge from '../../components/StatusBadge';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
 import clsx from 'clsx';
@@ -33,26 +34,7 @@ function injectStyle(id, css) {
     }
 }
 
-/* ─── Status badge ─── */
-const StatusBadge = ({ status }) => {
-    const map = {
-        PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
-        IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200',
-        COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-        AWAITING_APPROVAL: 'bg-violet-50 text-violet-700 border-violet-200',
-        APPROVED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-        REJECTED: 'bg-rose-50 text-rose-700 border-rose-200',
-    };
-    const label = {
-        PENDING: 'รอตรวจสอบ', IN_PROGRESS: 'กำลังซ่อม', COMPLETED: 'เสร็จสิ้น',
-        AWAITING_APPROVAL: 'รออนุมัติ', APPROVED: 'อนุมัติแล้ว', REJECTED: 'ไม่อนุมัติ',
-    };
-    return (
-        <span className={clsx('px-2.5 py-0.5 rounded-full text-xs font-semibold border inline-block', map[status] || 'bg-slate-50 text-slate-600 border-slate-200')}>
-            {label[status] || status}
-        </span>
-    );
-};
+
 
 /* ─── Alert type label mapping ─── */
 const alertTypeLabel = {
@@ -86,18 +68,15 @@ const Skeleton = ({ className }) => (
 );
 
 /* ─── KPI Card ─── */
-function KpiCard({ label, value, unit, subLabel, subValue, accentColor, iconBg, icon, delay = 0 }) {
+function KpiCard({ label, value, unit, subLabel, subValue, breakdown, accentColor, iconBg, icon, delay = 0 }) {
     return (
         <div
-            className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm group cursor-default relative overflow-hidden"
-            style={{ animation: `fadeSlideUp 0.5s ease-out ${delay}ms both`, transition: 'box-shadow 0.2s, transform 0.2s' }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 30px -4px rgba(124,58,237,0.12)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-            onMouseLeave={e => { e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; }}
+            className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md group cursor-default flex flex-col justify-between transition-all duration-200"
+            style={{ animation: `fadeSlideUp 0.4s ease-out ${delay}ms both` }}
         >
-            <div className="absolute left-0 top-4 bottom-4 w-1 rounded-r-full" style={{ background: accentColor }} />
-            <div className="flex items-center justify-between">
-                <div className="pl-3">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">{label}</p>
+            <div className="flex items-start justify-between w-full">
+                <div>
+                    <p className="text-xs font-semibold text-slate-500 mb-1">{label}</p>
                     <h3 className="text-2xl font-extrabold text-slate-800" style={{ animation: `countUp 0.4s ease-out ${delay + 100}ms both` }}>
                         {value} <span className="text-sm font-medium text-slate-400">{unit}</span>
                     </h3>
@@ -109,6 +88,16 @@ function KpiCard({ label, value, unit, subLabel, subValue, accentColor, iconBg, 
                     {icon}
                 </div>
             </div>
+            {breakdown && breakdown.length > 0 && (
+                <div className="pl-3 mt-3 flex flex-wrap gap-1.5">
+                    {breakdown.map((item, idx) => item.val > 0 && (
+                        <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold bg-slate-50 text-slate-600 border border-slate-100">
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: item.color || accentColor }}></span>
+                            {item.label}: {item.val}
+                        </span>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
@@ -255,31 +244,6 @@ export default function AdminDashboard() {
                         </div>
                     </div>
                 </div>
-            </div>
-
-            {/* ── KPI Cards ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <KpiCard
-                    label="รถยนต์ในระบบ" value={stats.totalVehicles || 0} unit="คัน"
-                    subLabel="พร้อมใช้งาน" subValue={`${stats.readyVehicles || 0} คัน`}
-                    accentColor="#3b82f6" iconBg="linear-gradient(135deg,#dbeafe,#bfdbfe)"
-                    icon={() => <Car size={22} className="text-blue-600" />} delay={60}
-                />
-                <KpiCard
-                    label="คำร้องรออนุมัติ" value={stats.pendingRepairs || 0} unit="รายการ"
-                    accentColor="#f59e0b" iconBg="linear-gradient(135deg,#fef3c7,#fde68a)"
-                    icon={() => <Wrench size={22} className="text-amber-600" />} delay={120}
-                />
-                <KpiCard
-                    label="แจ้งเตือนด่วน" value={stats.overdueAlerts || 0} unit="รายการ"
-                    accentColor="#f43f5e" iconBg="linear-gradient(135deg,#ffe4e6,#fecdd3)"
-                    icon={() => <Bell size={22} className="text-rose-500" />} delay={180}
-                />
-                <KpiCard
-                    label="ค่าซ่อมเดือนนี้" value={(stats.monthlyExpense || 0).toLocaleString('th-TH')} unit="บาท"
-                    accentColor="#10b981" iconBg="linear-gradient(135deg,#d1fae5,#a7f3d0)"
-                    icon={() => <Banknote size={22} className="text-emerald-600" />} delay={240}
-                />
             </div>
 
             {/* ── Tables ── */}

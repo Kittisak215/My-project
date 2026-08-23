@@ -1,40 +1,70 @@
 import { useEffect, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { Wrench, Car, AlertTriangle, ShieldAlert, PhoneCall, UploadCloud, FileText } from 'lucide-react';
+import { useForm, Controller } from 'react-hook-form';
+import { Wrench, Car, ShieldAlert, UploadCloud, MapPin, DollarSign } from 'lucide-react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
 import useAuthStore from '../../store/authStore';
 
+const todayDate = new Date();
+
 export default function DriverRepairPage() {
     const { user } = useAuthStore();
     const [vehicles, setVehicles] = useState([]);
+    const [garages, setGarages] = useState([]);
     const [selectedVehicle, setSelectedVehicle] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [file, setFile] = useState(null);
     const fileRef = useRef(null);
-    const { register, handleSubmit, watch, reset, formState: { errors } } = useForm({ defaultValues: { repairType: 'ซ่อมทั่วไป' } });
+    const { register, handleSubmit, watch, reset, control, formState: { errors } } = useForm({
+        defaultValues: { repairType: 'GENERAL', repairStartDate: todayDate }
+    });
 
     useEffect(() => {
-        api.get('/vehicles', { params: { limit: 100 } }).then(res => {
-            const driverId = user?.driver_id || user?.driver?.driver_id;
-            const driverVehicles = res.data.data.filter(v => (v.driver_id || v.driverId) === driverId);
+        const driverId = user?.driver_id || user?.driver?.driver_id;
+        Promise.all([
+            api.get('/vehicles', { params: { limit: 100 } }),
+            api.get('/garages', { params: { limit: 100, is_active: 'true' } }),
+        ]).then(([vRes, gRes]) => {
+            const driverVehicles = vRes.data.data.filter(v => (v.driver_id || v.driverId) === driverId);
             setVehicles(driverVehicles);
             if (driverVehicles.length > 0) setSelectedVehicle(driverVehicles[0]);
+            setGarages(gRes.data?.data || []);
         });
-    }, []);
+    }, [user?.driver_id, user?.driver?.driver_id]);
+
+    const handleVehicleChange = (vehicleId) => {
+        const v = vehicles.find(v => (v.vehicle_id || v.id) === parseInt(vehicleId));
+        if (v) setSelectedVehicle(v);
+    };
 
     const onSubmit = async (data) => {
         if (!selectedVehicle) return toast.error('ไม่มียานพาหนะที่ได้รับมอบหมาย');
         setSubmitting(true);
         try {
+            const currentMileage = selectedVehicle.current_mileage || selectedVehicle.currentMileage || 0;
             const repairData = {
                 vehicle_id: selectedVehicle.vehicle_id || selectedVehicle.id,
-                repair_type: data.repairType === 'ซ่อมฉุกเฉิน' ? 'EMERGENCY' : 'GENERAL',
+                repair_type: data.repairType,
                 issue_description: data.description,
-                total_cost: data.estimatedCost ? parseFloat(data.estimatedCost) : undefined,
-                mileage_at_repair: selectedVehicle.current_mileage || selectedVehicle.currentMileage || 0
+                mileage_at_repair: data.mileageAtRepair ? parseInt(data.mileageAtRepair) : currentMileage,
+                ...(data.garageId ? { garage_id: parseInt(data.garageId) } : {}),
+                ...(data.estimatedCost ? { estimated_cost: parseFloat(data.estimatedCost) } : {}),
+                ...(data.repairStartDate ? { repair_start_date: data.repairStartDate } : {}),
+                ...(data.estimatedEndDate ? { estimated_end_date: data.estimatedEndDate } : {}),
             };
-            if (data.repairType === 'ซ่อมฉุกเฉิน') repairData.status = 'AWAITING_APPROVAL';
+
+            if (data.repairType === 'EMERGENCY')            repairData.status = 'AWAITING_APPROVAL';
+
+            // Convert Date objects to ISO string for API
+            if (repairData.repair_start_date instanceof Date) {
+                repairData.repair_start_date = repairData.repair_start_date.toISOString().slice(0, 10);
+            }
+            if (repairData.estimated_end_date instanceof Date) {
+                repairData.estimated_end_date = repairData.estimated_end_date.toISOString().slice(0, 10);
+            }
+
             const res = await api.post('/repairs', repairData);
 
             if (file && (res.data.request_id || res.data.id)) {
@@ -44,7 +74,7 @@ export default function DriverRepairPage() {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
             }
-            toast.success('แจ้งซ่อมสำเร็จ!');
+            toast.success('ส่งคำร้องแจ้งซ่อมสำเร็จ!');
             reset();
             setFile(null);
             if (fileRef.current) fileRef.current.value = '';
@@ -55,21 +85,39 @@ export default function DriverRepairPage() {
     };
 
     const repairType = watch('repairType');
-    const isEmergency = repairType === 'ซ่อมฉุกเฉิน';
+    const isEmergency = repairType === 'EMERGENCY';
+    const currentMileage = selectedVehicle ? (selectedVehicle.current_mileage || selectedVehicle.currentMileage || 0) : 0;
 
     return (
-        <div className="w-full space-y-6 pb-10">
+        <div className="max-w-4xl mx-auto space-y-6 pb-12">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-red-50 text-red-600 rounded-2xl border border-red-100">
+                <div className="flex items-center gap-3.5">
+                    <div className="p-3 bg-red-50 text-red-600 rounded-2xl border border-red-100/80">
                         <Wrench size={26} />
                     </div>
                     <div>
-                        <h1 className="text-xl md:text-2xl font-bold text-slate-800">แจ้งซ่อม / เบิกฉุกเฉิน</h1>
+                        <h1 className="text-xl font-bold text-slate-800">แจ้งซ่อม / เบิกฉุกเฉิน</h1>
                         <p className="text-xs md:text-sm text-slate-500">ส่งคำขอเข้าซ่อมบำรุงหรือเบิกจ่ายเงินสำรองกรณีฉุกเฉิน</p>
                     </div>
                 </div>
+
+                {vehicles.length > 1 && (
+                    <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-50 p-1.5 rounded-xl border border-slate-200/80">
+                        <span className="text-xs font-semibold text-slate-500 pl-2">คันที่เลือก:</span>
+                        <select
+                            value={selectedVehicle?.vehicle_id || selectedVehicle?.id || ''}
+                            onChange={e => handleVehicleChange(e.target.value)}
+                            className="text-xs font-bold text-red-600 bg-white border border-red-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-200"
+                        >
+                            {vehicles.map(v => (
+                                <option key={v.vehicle_id || v.id} value={v.vehicle_id || v.id}>
+                                    {v.license_plate} ({v.brand} {v.model})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
 
             {!selectedVehicle ? (
@@ -79,43 +127,82 @@ export default function DriverRepairPage() {
                     <p className="text-xs text-slate-400 mt-1">กรุณาติดต่อผู้ดูแลระบบ (Admin) เพื่อมอบหมายรถ</p>
                 </div>
             ) : (
-                /* 2-Column Grid Layout */
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    
-                    {/* Left Column: Form Card (7 cols) */}
-                    <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 md:p-8">
+                <>
+                    {/* Vehicle Summary Card */}
+                    <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-5 md:p-6 shadow-md relative overflow-hidden">
+                        <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-red-500/10 rounded-full blur-xl pointer-events-none"></div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3.5">
+                                <div className="p-3 bg-white/10 rounded-xl backdrop-blur-md shrink-0">
+                                    <Car size={24} className="text-slate-300" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-xl font-bold tracking-tight text-white">{selectedVehicle.license_plate}</h2>
+                                        <span className="text-[11px] font-semibold bg-white/15 text-slate-200 px-2 py-0.5 rounded-full">
+                                            {selectedVehicle.brand} {selectedVehicle.model}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        สถานะ: {selectedVehicle.status === 'READY' ? '🟢 พร้อมใช้งาน' : '🛠️ กำลังซ่อมบำรุง'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="bg-white/10 backdrop-blur-md rounded-xl px-4 py-2.5 border border-white/10 self-start sm:self-auto min-w-[170px] text-right">
+                                <p className="text-xs text-slate-400">เลขไมล์ปัจจุบัน</p>
+                                <p className="text-lg font-extrabold text-white">
+                                    {currentMileage.toLocaleString()} <span className="text-xs font-normal text-slate-400">กม.</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Form Card */}
+                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 md:p-8">
                         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                            
-                            {/* Type Selector */}
+                            {/* Repair Type */}
                             <div>
-                                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                                    ประเภทการแจ้ง *
+                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">
+                                    ประเภทการแจ้งซ่อม *
                                 </label>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {[
-                                        { type: 'ซ่อมทั่วไป', icon: '🔧', desc: 'แจ้งตามรอบ/อาการปกติ' },
-                                        { type: 'ซ่อมฉุกเฉิน', icon: '🚨', desc: 'สำรองจ่าย/ฉุกเฉิน' }
-                                    ].map(({ type, icon, desc }) => (
+                                        {
+                                            value: 'GENERAL',
+                                            icon: '🔧',
+                                            label: 'ซ่อมทั่วไป',
+                                            desc: 'ซ่อมบำรุงประจำ หรืออาการผิดปกติทั่วไปที่พบระหว่างใช้งาน'
+                                        },
+                                        {
+                                            value: 'EMERGENCY',
+                                            icon: '🚨',
+                                            label: 'ซ่อมฉุกเฉิน',
+                                            desc: 'รถพังระหว่างเดินทาง / สำรองเงินจ่ายฉุกเฉินและขอเบิกย้อนหลัง'
+                                        }
+                                    ].map(({ value, icon, label, desc }) => (
                                         <label
-                                            key={type}
-                                            className={`cursor-pointer border-2 rounded-2xl p-4 text-center transition-all relative ${
-                                                repairType === type
-                                                    ? type === 'ซ่อมทั่วไป'
-                                                        ? 'border-teal-500 bg-teal-50/60 shadow-xs'
-                                                        : 'border-red-500 bg-red-50/60 shadow-xs'
+                                            key={value}
+                                            className={`cursor-pointer border-2 rounded-2xl p-4 transition-all relative flex items-start gap-3.5 ${
+                                                repairType === value
+                                                    ? value === 'GENERAL'
+                                                        ? 'border-teal-600 bg-teal-50/50 shadow-xs ring-2 ring-teal-100'
+                                                        : 'border-red-600 bg-red-50/50 shadow-xs ring-2 ring-red-100'
                                                     : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
                                             }`}
                                         >
-                                            <input {...register('repairType')} type="radio" value={type} className="sr-only" />
-                                            <span className="text-3xl block mb-1">{icon}</span>
-                                            <p className={`text-sm font-bold ${
-                                                repairType === type
-                                                    ? type === 'ซ่อมทั่วไป' ? 'text-teal-800' : 'text-red-800'
-                                                    : 'text-slate-700'
-                                            }`}>
-                                                {type}
-                                            </p>
-                                            <p className="text-xs text-slate-400 mt-0.5">{desc}</p>
+                                            <input {...register('repairType')} type="radio" value={value} className="sr-only" />
+                                            <span className="text-2xl shrink-0 mt-0.5">{icon}</span>
+                                            <div className="flex-1">
+                                                <p className={`text-sm font-bold ${
+                                                    repairType === value
+                                                        ? value === 'GENERAL' ? 'text-teal-900' : 'text-red-900'
+                                                        : 'text-slate-800'
+                                                }`}>
+                                                    {label}
+                                                </p>
+                                                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{desc}</p>
+                                            </div>
                                         </label>
                                     ))}
                                 </div>
@@ -123,66 +210,162 @@ export default function DriverRepairPage() {
 
                             {/* Problem Description */}
                             <div>
-                                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                                    อาการและรายละเอียดปัญหา *
+                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                                    อาการและรายละเอียดปัญหาที่พบ *
                                 </label>
                                 <textarea
-                                    {...register('description', { required: 'กรุณาอธิบายปัญหา' })}
+                                    {...register('description', { required: 'กรุณาระบุรายละเอียดปัญหาหรืออาการผิดปกติ' })}
                                     rows={4}
-                                    placeholder="อธิบายอาการ เช่น มีเสียงดังผิดปกติช่วงล่าง, ไฟเครื่องยนต์โชว์, ยางระเบิด..."
-                                    className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 resize-none"
+                                    placeholder="อธิบายอาการ เช่น มีเสียงดังผิดปกติช่วงล่างด้านขวา, ไฟเครื่องยนต์โชว์เตือน, ยางหน้าซ้ายรั่ว..."
+                                    className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 resize-none bg-white"
                                 />
                                 {errors.description && (
-                                    <p className="text-red-500 text-xs mt-1 font-medium">{errors.description.message}</p>
+                                    <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.description.message}</p>
                                 )}
                             </div>
 
-                            {/* Emergency Extra Fields */}
-                            {isEmergency && (
-                                <div className="bg-red-50/80 border border-red-200 rounded-2xl p-5 space-y-3">
-                                    <div className="flex items-center gap-2 text-red-800 font-bold text-sm">
-                                        <ShieldAlert size={18} className="text-red-600 shrink-0" />
-                                        <span>คำขอเบิกเงินสำรองจ่ายฉุกเฉิน</span>
-                                    </div>
-                                    <p className="text-xs text-red-600">รายการนี้จะถูกส่งไปให้ผู้บริหารตรวจสอบและอนุมัติยอดเงินย้อนหลัง</p>
+                            {/* Mileage at Repair */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                                    เลขไมล์ขณะเข้าซ่อม (กม.)
+                                </label>
+                                <input
+                                    {...register('mileageAtRepair', {
+                                        min: { value: 0, message: 'เลขไมล์ต้องไม่ติดลบ' }
+                                    })}
+                                    type="number"
+                                    defaultValue={currentMileage}
+                                    placeholder={`ไมล์ปัจจุบัน ${currentMileage.toLocaleString()} กม.`}
+                                    className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA] bg-white"
+                                />
+                                <p className="text-xs text-slate-400 mt-1">ระบุเลขไมล์จากหน้าปัดรถ ณ วันที่นำเข้าซ่อม</p>
+                            </div>
+
+                            {/* Garage & Cost Info */}
+                            <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-5 space-y-4">
+                                <div className="flex items-center gap-2 text-slate-700 font-bold text-sm">
+                                    <MapPin size={16} className="text-[#8A1ABA]" />
+                                    <span>ข้อมูลการซ่อม</span>
+                                    <span className="text-xs font-normal text-slate-400 ml-1">(ไม่บังคับ)</span>
+                                </div>
+
+                                {/* Garage */}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">อู่ที่เข้าซ่อม</label>
+                                    <select
+                                        {...register('garageId')}
+                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA]"
+                                    >
+                                        <option value="">-- อู่นอก / อื่นๆ (ดูจากใบเสร็จหรือระบุในรายละเอียด) --</option>
+                                        {garages.map(g => (
+                                            <option key={g.garage_id} value={g.garage_id}>
+                                                {g.garage_name}{g.phone ? ` (${g.phone})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[11px] text-slate-400 mt-1">
+                                        💡 หากเข้าซ่อมอู่นอก/ข้างทางฉุกเฉิน ให้เลือกตัวเลือกนี้ แล้วแนบรูปใบเสร็จรับเงินด้านล่าง
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {/* Estimated Cost */}
                                     <div>
-                                        <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                            ยอดเงินสำรองจ่ายจริง (บาท) *
+                                        <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                                            <DollarSign size={12} className="inline mr-1" />
+                                            ราคาประเมิน (บาท)
                                         </label>
                                         <input
                                             {...register('estimatedCost', { valueAsNumber: true })}
                                             type="number"
                                             step="0.01"
                                             placeholder="0.00"
-                                            className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                                            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA]"
                                         />
                                     </div>
+
+                                    {/* Repair Start Date */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                                            วันที่เข้าซ่อม
+                                        </label>
+                                        <Controller
+                                            name="repairStartDate"
+                                            control={control}
+                                            render={({ field }) => (
+                                                <DatePicker
+                                                    selected={field.value}
+                                                    onChange={(date) => field.onChange(date)}
+                                                    dateFormat="dd/MM/yyyy"
+                                                    placeholderText="เลือกวันที่..."
+                                                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA]"
+                                                    wrapperClassName="w-full"
+                                                    calendarClassName="shadow-xl rounded-xl border-0"
+                                                    showPopperArrow={false}
+                                                />
+                                            )}
+                                        />
+                                    </div>
+
+                                    {/* Estimated End Date */}
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                                            วันที่คาดว่าจะเสร็จ (นัดรับรถ)
+                                        </label>
+                                        <Controller
+                                            name="estimatedEndDate"
+                                            control={control}
+                                            render={({ field }) => (
+                                                <DatePicker
+                                                    selected={field.value}
+                                                    onChange={(date) => field.onChange(date)}
+                                                    dateFormat="dd/MM/yyyy"
+                                                    placeholderText="เลือกวันที่..."
+                                                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA]"
+                                                    wrapperClassName="w-full"
+                                                    calendarClassName="shadow-xl rounded-xl border-0"
+                                                    showPopperArrow={false}
+                                                />
+                                            )}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Emergency note */}
+                            {isEmergency && (
+                                <div className="bg-red-50/80 border border-red-200 rounded-2xl p-5">
+                                    <div className="flex items-center gap-2 text-red-800 font-bold text-sm mb-1">
+                                        <ShieldAlert size={18} className="text-red-600 shrink-0" />
+                                        <span>คำขอเบิกเงินสำรองจ่ายฉุกเฉิน</span>
+                                    </div>
+                                    <p className="text-xs text-red-600">รายการนี้จะถูกส่งไปให้ผู้บริหารตรวจสอบและอนุมัติยอดเงินโดยอัตโนมัติ กรุณาระบุราคาประเมิน/ค่าใช้จ่ายในช่องด้านบน</p>
                                 </div>
                             )}
 
                             {/* File Upload */}
                             <div>
-                                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                                    แนบรูปภาพ / ใบเสร็จรับเงิน
+                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                                    แนบรูปภาพความเสียหาย / ใบเสร็จรับเงิน
                                 </label>
-                                <div className="border-2 border-dashed border-slate-200 hover:border-slate-300 rounded-2xl p-4 text-center bg-slate-50/50">
-                                    <UploadCloud size={28} className="mx-auto text-slate-400 mb-1" />
+                                <div className="border-2 border-dashed border-slate-200 hover:border-slate-300 rounded-2xl p-5 text-center bg-slate-50/50 transition-colors">
+                                    <UploadCloud size={30} className="mx-auto text-slate-400 mb-1.5" />
                                     <input
                                         type="file"
                                         ref={fileRef}
                                         accept=".jpg,.jpeg,.png,.pdf"
                                         onChange={e => setFile(e.target.files[0])}
-                                        className="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 cursor-pointer"
+                                        className="text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 cursor-pointer"
                                     />
-                                    <p className="text-xs text-slate-400 mt-1">รองรับ JPG, PNG, PDF ขนาดไม่เกิน 5MB</p>
+                                    <p className="text-xs text-slate-400 mt-2">รองรับไฟล์ JPG, PNG, PDF ขนาดไม่เกิน 5MB</p>
                                 </div>
                             </div>
 
-                            {/* Submit Button */}
+                            {/* Submit */}
                             <button
                                 type="submit"
                                 disabled={submitting}
-                                className={`w-full py-3.5 rounded-xl text-white text-sm font-bold transition-all shadow-sm hover:shadow-md disabled:opacity-60 cursor-pointer ${
+                                className={`w-full py-4 rounded-xl text-white text-sm font-bold transition-all shadow-sm hover:shadow-md disabled:opacity-60 cursor-pointer ${
                                     isEmergency
                                         ? 'bg-red-600 hover:bg-red-700'
                                         : 'bg-teal-700 hover:bg-teal-800'
@@ -192,47 +375,11 @@ export default function DriverRepairPage() {
                                     ? 'กำลังส่งคำขอ...'
                                     : isEmergency
                                     ? '🚨 ส่งคำขอเบิกเงินฉุกเฉิน'
-                                    : '🔧 ส่งคำร้องแจ้งซ่อม'}
+                                    : '🔧 ยืนยันส่งคำร้องแจ้งซ่อม'}
                             </button>
                         </form>
                     </div>
-
-                    {/* Right Column: Vehicle Details & Hotline (5 cols) */}
-                    <div className="lg:col-span-5 space-y-6">
-                        {/* Vehicle Card */}
-                        <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
-                            <div className="absolute -right-10 -top-10 w-40 h-40 bg-red-500/10 rounded-full blur-2xl pointer-events-none"></div>
-                            
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">ยานพาหนะที่แจ้ง</p>
-                            <h3 className="text-2xl font-bold text-white mb-1">{selectedVehicle.license_plate}</h3>
-                            <p className="text-sm text-slate-300 mb-4">{selectedVehicle.brand} {selectedVehicle.model}</p>
-
-                            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3.5 border border-white/10 flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs text-slate-400">เลขไมล์ปัจจุบัน</p>
-                                    <p className="text-lg font-bold text-white mt-0.5">
-                                        {(selectedVehicle.current_mileage || selectedVehicle.currentMileage || 0).toLocaleString()} กม.
-                                    </p>
-                                </div>
-                                <Car size={24} className="text-slate-400" />
-                            </div>
-                        </div>
-
-                        {/* Emergency Contact & Guidelines */}
-                        <div className="bg-red-50/60 border border-red-200/80 rounded-2xl p-5 text-slate-700">
-                            <h3 className="font-bold text-red-900 text-sm flex items-center gap-2 mb-2">
-                                <PhoneCall size={18} className="text-red-600" /> ติดต่อฉุกเฉิน & อู่ซ่อมบริการ
-                            </h3>
-                            <p className="text-xs text-slate-600 leading-relaxed mb-3">
-                                หากรถเสียกะทันหันกลางทาง กรุณาถ่ายภาพหลักฐาน ใบเสร็จ หรือติดต่อฝ่ายบริหารยานพาหนะก่อนเข้าอู่ซ่อม
-                            </p>
-                            <div className="bg-white rounded-xl p-3 border border-red-200 text-xs space-y-1 text-slate-800">
-                                <p><strong>ฝ่ายบริหารยานพาหนะ:</strong> 02-123-4567</p>
-                                <p><strong>ศูนย์ช่วยเหลือนอกสถานที่:</strong> 081-999-8888</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                </>
             )}
         </div>
     );

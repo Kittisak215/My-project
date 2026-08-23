@@ -61,12 +61,6 @@ export default function DriversPage() {
         } catch (err) { toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด'); }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('ยืนยันการลบ? ข้อมูลที่เกี่ยวโยงอาจทำให้ลบไม่ได้ ให้ใช้การเปลี่ยนสถานะแทนหากลบไม่สำเร็จ')) return;
-        try { await api.delete(`/drivers/${id}`); toast.success('ลบสำเร็จ'); fetchDrivers(); }
-        catch { toast.error('ลบไม่สำเร็จ (มีข้อมูลผูกอยู่ แนะนำให้แก้ไขเป็นสถานะพ้นสภาพแทน)'); }
-    };
-
     const totalPages = Math.ceil(total / limit);
 
     return (
@@ -107,8 +101,7 @@ export default function DriversPage() {
                                 <span className="bg-blue-100 text-blue-700 py-0.5 px-2 rounded-full text-xs font-medium mt-2 inline-block">{d.vehicles?.length || 0} คัน</span>
                             </div>
                             <div className="flex items-center gap-1 ml-2 shrink-0">
-                                <button onClick={() => openEdit(d)} className="px-3 py-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200">แก้ไข</button>
-                                <button onClick={() => handleDelete(d.driver_id)} disabled={d.vehicles?.length > 0} className="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200 disabled:opacity-30">ลบ</button>
+                                <button onClick={() => openEdit(d)} className="px-3.5 py-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200">แก้ไข</button>
                             </div>
                         </div>
                     </div>
@@ -141,10 +134,7 @@ export default function DriversPage() {
                                     <td className="px-6 py-4 text-center"><span className="bg-blue-100 text-blue-700 py-1 px-3 rounded-full text-xs font-medium">{d.vehicles?.length || 0} คัน</span></td>
                                     <td className="px-6 py-4 text-center"><StatusBadge isActive={d.is_active} /></td>
                                     <td className="px-6 py-4 text-center">
-                                        <div className="flex items-center justify-center space-x-2">
-                                            <button onClick={() => openEdit(d)} className="px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200">แก้ไข</button>
-                                            <button onClick={() => handleDelete(d.driver_id)} disabled={d.vehicles?.length > 0} className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200 disabled:opacity-30 disabled:cursor-not-allowed">ลบ</button>
-                                        </div>
+                                        <button onClick={() => openEdit(d)} className="px-3.5 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200">แก้ไข</button>
                                     </td>
                                 </tr>
                             ))}
@@ -176,10 +166,10 @@ export default function DriversPage() {
                             <input {...register('full_name', { required: true })} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" /></div>
                         <div><label className="text-sm font-medium text-slate-700">เบอร์โทรศัพท์ *</label>
                             <input {...register('phone', { required: true })} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" /></div>
-                        <div><label className="text-sm font-medium text-slate-700">สถานะ</label>
+                        <div><label className="text-sm font-medium text-slate-700">สถานะการทำงาน</label>
                             <select {...register('is_active')} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-                                <option value="true">ปฏิบัติงาน</option>
-                                <option value="false">พ้นสภาพ</option>
+                                <option value="true">🟢 ปฏิบัติงาน (พร้อมขับขี่)</option>
+                                <option value="false">⚫ พ้นสภาพ (ปลดรถและระงับบัญชีอัตโนมัติ)</option>
                             </select></div>
                         <div className="flex justify-end gap-3 pt-4 border-t">
                             <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">ยกเลิก</button>

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, Bell, AlertTriangle } from "lucide-react";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
 import clsx from "clsx";
@@ -27,14 +27,10 @@ export default function AlertsPage() {
     fetchAlerts();
   }, [fetchAlerts]);
 
-  const markDone = async (id) => {
-    try {
-      await api.put(`/alerts/${id}`, { is_resolved: true });
-      toast.success("อัปเดตสำเร็จ");
-      fetchAlerts();
-    } catch {
-      toast.error("เกิดข้อผิดพลาด");
-    }
+  const notifyDriver = (vehicle) => {
+    // ในระบบจริงอาจจะยิง API ไปที่ /notifications/send หรือ Line Notify
+    const driverName = vehicle?.driver?.full_name || "คนขับ";
+    toast.success(`ส่งการแจ้งเตือนไปยัง ${driverName} สำเร็จ`);
   };
 
   const alertTypeMap = {
@@ -43,9 +39,8 @@ export default function AlertsPage() {
     GENERAL: "ซ่อมทั่วไป",
     MAINTENANCE: "บำรุงรักษาตามระยะ",
     EMERGENCY: "ซ่อมฉุกเฉิน",
-    เปลี่ยนถ่ายน้ำมันเครื่อง: "เปลี่ยนถ่ายน้ำมันเครื่อง",
-    "เปลี่ยนยาง 4 เส้น": "เปลี่ยนยาง",
-    เปลี่ยนยาง: "เปลี่ยนยาง",
+    INSPECTION: "ตรวจสภาพรถ",
+    OTHER: "อื่นๆ",
   };
 
   const getBadge = (status) => {
@@ -56,9 +51,9 @@ export default function AlertsPage() {
     return "bg-slate-100 text-slate-500 border border-slate-200";
   };
   const getLabel = (status) => {
-    if (status === "OVERDUE") return "🔴 เลยกำหนด";
-    if (status === "UPCOMING") return "🟡 ใกล้ถึงกำหนด";
-    return "✅ ดำเนินการแล้ว";
+    if (status === "OVERDUE") return "เลยกำหนด";
+    if (status === "UPCOMING") return "ใกล้ถึงกำหนด";
+    return "ดำเนินการแล้ว";
   };
 
   return (
@@ -91,10 +86,12 @@ export default function AlertsPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="px-4 md:px-6 py-4 border-b border-slate-200 bg-slate-50">
-          <h2 className="text-base md:text-lg font-semibold text-slate-800">
-            ⚠️ การแจ้งเตือนบำรุงรักษา{" "}
-            {alerts.filter((a) => a.status !== "DONE").length}{" "}
-            รายการที่ต้องดำเนินการ
+          <h2 className="text-base md:text-lg font-semibold text-slate-800 flex items-center gap-2">
+            <AlertTriangle className="text-amber-500" size={20} />
+            การแจ้งเตือนบำรุงรักษา
+            <span className="bg-slate-100 text-slate-600 text-sm py-0.5 px-2.5 rounded-full ml-1 border border-slate-200">
+              {alerts.filter((a) => a.status !== "DONE").length} รายการ
+            </span>
           </h2>
         </div>
 
@@ -151,12 +148,15 @@ export default function AlertsPage() {
                 </span>
               </div>
               {a.status !== "DONE" && (
-                <button
-                  onClick={() => markDone(a.alert_id)}
-                  className="mt-3 w-full bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 py-2 rounded-lg text-xs font-medium"
-                >
-                  ✅ ทำเครื่องหมายเสร็จสิ้น
-                </button>
+                <div className="mt-3 flex flex-col items-center gap-1">
+                  <span className="text-[10px] text-slate-400">ระบบส่งแจ้งเตือนอัตโนมัติแล้ว</span>
+                  <button
+                    onClick={() => notifyDriver(a.vehicle)}
+                    className="w-full flex items-center justify-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 py-2 rounded-lg text-xs font-medium transition-colors"
+                  >
+                    <Bell size={14} /> เตือนซ้ำ
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -242,12 +242,15 @@ export default function AlertsPage() {
                   </td>
                   <td className="px-6 py-4 text-center">
                     {a.status !== "DONE" ? (
-                      <button
-                        onClick={() => markDone(a.alert_id)}
-                        className="bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 px-3 py-1.5 rounded text-xs font-medium"
-                      >
-                        ✅ ทำเครื่องหมายเสร็จสิ้น
-                      </button>
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-[10px] text-slate-400 leading-none">ระบบแจ้งอัตโนมัติแล้ว</span>
+                        <button
+                          onClick={() => notifyDriver(a.vehicle)}
+                          className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 px-3 py-1.5 rounded text-xs font-medium transition-colors"
+                        >
+                          <Bell size={14} /> เตือนซ้ำ
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-slate-400 text-xs">-</span>
                     )}

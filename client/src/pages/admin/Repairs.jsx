@@ -2,7 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { Search, X, ExternalLink, ImageOff } from 'lucide-react';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import clsx from 'clsx';
 
 const statusMap = {
@@ -49,6 +51,13 @@ const Modal = ({ title, onClose, children }) => (
     </div>
 );
 
+const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return '-';
+    return d.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
 export default function RepairsPage() {
     const [repairs, setRepairs] = useState([]);
     const [total, setTotal] = useState(0);
@@ -61,8 +70,9 @@ export default function RepairsPage() {
     const [selectedRepair, setSelectedRepair] = useState(null);
     const [selectedDetailRepair, setSelectedDetailRepair] = useState(null);
     const [garages, setGarages] = useState([]);
-    const { register, handleSubmit, reset } = useForm();
+    const { register, handleSubmit, reset, watch, control } = useForm();
     const limit = 10;
+    const watchStatus = watch('status');
 
     const fetchAll = useCallback(async () => {
         try {
@@ -80,7 +90,17 @@ export default function RepairsPage() {
 
     const openStatusModal = (r) => {
         setSelectedRepair(r);
-        reset({ status: r.status, note: r.note, garage_id: r.garage_id, total_cost: r.total_cost });
+        reset({
+            status: r.status,
+            note: r.note,
+            garage_id: r.garage_id,
+            total_cost: r.total_cost,
+            estimated_cost: r.estimated_cost,
+            repair_start_date: r.repair_start_date ? r.repair_start_date.slice(0, 10) : '',
+            estimated_end_date: r.estimated_end_date ? r.estimated_end_date.slice(0, 10) : '',
+            repair_end_date: r.repair_end_date ? r.repair_end_date.slice(0, 10) : '',
+            oil_grade: r.oil_grade || '',
+        });
         setShowStatusModal(true);
     };
 
@@ -132,9 +152,9 @@ export default function RepairsPage() {
                 {repairs.map(r => (
                     <div key={r.request_id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                         <div className="flex items-start justify-between mb-2">
-                            <div>
-                                <span className="font-semibold text-blue-600 text-sm">REQ-{String(r.request_id).padStart(4, '0')}</span>
-                                <span className="text-xs text-slate-400 ml-2">{new Date(r.created_at).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+                            <div className="cursor-pointer group" onClick={() => openDetailModal(r)}>
+                                <span className="font-semibold text-blue-600 text-sm group-hover:underline">REQ-{String(r.request_id).padStart(4, '0')}</span>
+                                <span className="text-xs text-slate-400 ml-2">{formatDate(r.created_at)}</span>
                             </div>
                             <StatusBadge status={r.status} />
                         </div>
@@ -143,21 +163,28 @@ export default function RepairsPage() {
                             <RepairTypeBadge type={r.repair_type} />
                         </div>
                         <p className="text-sm text-slate-600 mb-2 line-clamp-2">{r.issue_description}</p>
+                        {r.garage && <p className="text-xs text-slate-500 mb-1">📍 {r.garage.garage_name}</p>}
+                        {r.repair_start_date && (
+                            <p className="text-xs text-slate-500 mb-1">
+                                📅 {formatDate(r.repair_start_date)}
+                                {r.estimated_end_date && ` → ${formatDate(r.estimated_end_date)}`}
+                            </p>
+                        )}
                         <div className="flex items-center justify-between">
-                            <div className="text-xs text-slate-500">
-                                {r.garage ? <span>{r.garage.garage_name}</span> : <span className="italic">รอระบุอู่</span>}
-                                {r.total_cost && <span className="ml-2 font-semibold text-slate-700">{parseFloat(r.total_cost).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บ.</span>}
+                            <div className="text-xs text-slate-500 space-y-0.5">
+                                {r.estimated_cost && <p>ประเมิน: <span className="font-semibold text-amber-700">{parseFloat(r.estimated_cost).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บ.</span></p>}
+                                {r.total_cost && <p>จริง: <span className="font-semibold text-slate-700">{parseFloat(r.total_cost).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บ.</span></p>}
                             </div>
-                            <div className="flex items-center gap-1.5">
-                                {r.status !== 'COMPLETED' && r.status !== 'REJECTED' && (
-                                    <button onClick={() => openStatusModal(r)} className="px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded border border-blue-200">
-                                        {r.status === 'PENDING' ? 'ตรวจสอบ' : 'อัปเดต'}
+                            <div className="flex items-center gap-1.5 w-full">
+                                {r.status === 'COMPLETED' || r.status === 'REJECTED' ? (
+                                    <button onClick={() => openDetailModal(r)} className="w-full px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors">
+                                        ดูรายละเอียด
+                                    </button>
+                                ) : (
+                                    <button onClick={() => openStatusModal(r)} className="w-full px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors">
+                                        {r.status === 'PENDING' ? 'ตรวจสอบคำร้อง' : 'อัปเดตสถานะ'}
                                     </button>
                                 )}
-                                <button onClick={() => openDetailModal(r)} className="px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded border border-slate-200">
-                                    รายละเอียด
-                                </button>
-                                <button onClick={() => handleDelete(r.request_id)} className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200">ลบ</button>
                             </div>
                         </div>
                     </div>
@@ -169,51 +196,70 @@ export default function RepairsPage() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 whitespace-nowrap"><tr>
-                            <th className="px-6 py-4 font-semibold text-center">เลขที่ / วันที่</th>
-                            <th className="px-6 py-4 font-semibold">ทะเบียนรถ</th>
-                            <th className="px-6 py-4 font-semibold">ผู้แจ้ง</th>
-                            <th className="px-6 py-4 font-semibold w-64">อาการเบื้องต้น</th>
-                            <th className="px-6 py-4 font-semibold">อู่ที่ดำเนินการ</th>
-                            <th className="px-6 py-4 font-semibold text-right">ค่าใช้จ่าย</th>
-                            <th className="px-6 py-4 font-semibold text-center">สถานะ</th>
-                            <th className="px-6 py-4 font-semibold text-center">จัดการ</th>
+                            <th className="px-4 py-4 font-semibold text-center">เลขที่ / วันที่</th>
+                            <th className="px-4 py-4 font-semibold">ทะเบียนรถ</th>
+                            <th className="px-4 py-4 font-semibold">ผู้แจ้ง</th>
+                            <th className="px-4 py-4 font-semibold w-48">อาการเบื้องต้น</th>
+                            <th className="px-4 py-4 font-semibold">อู่ / วันที่ซ่อม</th>
+                            <th className="px-4 py-4 font-semibold text-right">ประเมิน / จ่ายจริง</th>
+                            <th className="px-4 py-4 font-semibold text-center">สถานะ</th>
+                            <th className="px-4 py-4 font-semibold text-center">จัดการ</th>
                         </tr></thead>
                         <tbody className="divide-y divide-slate-100">
                             {loading && <tr><td colSpan={8} className="text-center py-8 text-slate-400">กำลังโหลด...</td></tr>}
                             {!loading && repairs.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate-400">ไม่พบข้อมูล</td></tr>}
                             {repairs.map(r => (
                                 <tr key={r.request_id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-4 text-center">
-                                        <div className="font-semibold text-blue-600">REQ-{String(r.request_id).padStart(4, '0')}</div>
-                                        <div className="text-xs text-slate-500">{new Date(r.created_at).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })}</div>
+                                    <td className="px-4 py-4 text-center">
+                                        <div className="cursor-pointer group inline-block" onClick={() => openDetailModal(r)}>
+                                            <div className="font-semibold text-blue-600 group-hover:underline">REQ-{String(r.request_id).padStart(4, '0')}</div>
+                                            <div className="text-xs text-slate-500">{formatDate(r.created_at)}</div>
+                                        </div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-4 py-4">
                                         <div className="font-semibold text-slate-800">{r.vehicle?.license_plate}</div>
                                         <div className="text-xs text-slate-500">ไมล์: {(r.mileage_at_repair || 0).toLocaleString()} กม.</div>
                                     </td>
-                                    <td className="px-6 py-4 text-slate-600">{r.driver?.full_name || '-'}</td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-4 py-4 text-slate-600">{r.driver?.full_name || '-'}</td>
+                                    <td className="px-4 py-4">
                                         <div className="mb-1"><RepairTypeBadge type={r.repair_type} /></div>
-                                        <div className="text-slate-800 text-sm truncate-2">{r.issue_description}</div>
+                                        <div className="text-slate-800 text-xs truncate max-w-[180px]">{r.issue_description}</div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        {r.garage ? <><div className="text-slate-800">{r.garage.garage_name}</div><div className="text-xs text-slate-500">{r.garage.phone}</div></> : <span className="text-slate-400 text-xs italic">- รอระบุอู่ -</span>}
+                                    <td className="px-4 py-4">
+                                        {r.garage
+                                            ? <><div className="text-slate-800 text-xs font-semibold">{r.garage.garage_name}</div><div className="text-xs text-slate-400">{r.garage.phone}</div></>
+                                            : <span className="text-slate-400 text-xs italic">- รอระบุอู่ -</span>
+                                        }
+                                        {r.repair_start_date && (
+                                            <div className="text-xs text-slate-500 mt-1">
+                                                {formatDate(r.repair_start_date)}
+                                                {r.estimated_end_date && <span> → {formatDate(r.estimated_end_date)}</span>}
+                                            </div>
+                                        )}
                                     </td>
-                                    <td className="px-6 py-4 text-right font-semibold text-slate-800">
-                                        {r.total_cost ? parseFloat(r.total_cost).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'}
+                                    <td className="px-4 py-4 text-right">
+                                        {r.estimated_cost && (
+                                            <div className="text-xs text-amber-700 font-semibold">
+                                                ประเมิน: {parseFloat(r.estimated_cost).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                                            </div>
+                                        )}
+                                        {r.total_cost
+                                            ? <div className="font-semibold text-slate-800 text-sm">{parseFloat(r.total_cost).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</div>
+                                            : !r.estimated_cost && <span className="text-slate-400 text-xs">-</span>
+                                        }
                                     </td>
-                                    <td className="px-6 py-4 text-center"><StatusBadge status={r.status} /></td>
-                                    <td className="px-6 py-4 text-center whitespace-nowrap">
-                                        <div className="flex items-center justify-center space-x-2">
-                                            {r.status !== 'COMPLETED' && r.status !== 'REJECTED' && (
-                                                <button onClick={() => openStatusModal(r)} className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded border border-blue-200">
+                                    <td className="px-4 py-4 text-center"><StatusBadge status={r.status} /></td>
+                                    <td className="px-4 py-4 text-center whitespace-nowrap">
+                                        <div className="flex items-center justify-center">
+                                            {r.status === 'COMPLETED' || r.status === 'REJECTED' ? (
+                                                <button onClick={() => openDetailModal(r)} className="w-full max-w-[120px] px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200">
+                                                    ดูรายละเอียด
+                                                </button>
+                                            ) : (
+                                                <button onClick={() => openStatusModal(r)} className="w-full max-w-[120px] px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded border border-blue-200">
                                                     {r.status === 'PENDING' ? 'ตรวจสอบ' : 'อัปเดตสถานะ'}
                                                 </button>
                                             )}
-                                            <button onClick={() => openDetailModal(r)} className="px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded border border-slate-200">
-                                                รายละเอียด
-                                            </button>
-                                            <button onClick={() => handleDelete(r.request_id)} className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200">ลบ</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -239,38 +285,132 @@ export default function RepairsPage() {
                 </div>
             </div>
 
+            {/* Status Update Modal */}
             {showStatusModal && selectedRepair && (
                 <Modal title={`อัปเดตสถานะ: REQ-${String(selectedRepair.request_id).padStart(4, '0')}`} onClose={() => setShowStatusModal(false)}>
                     <div className="bg-slate-50 p-3 rounded-lg mb-4 text-sm">
                         <p className="font-medium text-slate-800">{selectedRepair.vehicle?.license_plate}</p>
-                        <p className="text-slate-600 mt-1">{selectedRepair.description}</p>
+                        <p className="text-slate-500 text-xs mt-0.5">{selectedRepair.issue_description}</p>
                     </div>
                     <form onSubmit={handleSubmit(onStatusSubmit)} className="space-y-4">
-                        <div><label className="text-sm font-medium text-slate-700">สถานะ</label>
+                        <div>
+                            <label className="text-sm font-medium text-slate-700">สถานะ</label>
                             <select {...register('status', { required: true })} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
                                 <option value="PENDING">รอตรวจสอบ</option>
                                 <option value="IN_PROGRESS">กำลังดำเนินการ</option>
-                                <option value="AWAITING_APPROVAL">ส่งรออนุมัติ (งบเกิน 10,000 บาท)</option>
+                                <option value="AWAITING_APPROVAL">ส่งรออนุมัติ</option>
                                 <option value="COMPLETED">ซ่อมเสร็จสิ้น</option>
-                            </select></div>
-                        <div><label className="text-sm font-medium text-slate-700">อู่ที่ดำเนินการ</label>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-slate-700">อู่ที่ดำเนินการ</label>
                             <select {...register('garage_id')} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-                                <option value="">ไม่ระบุ</option>
+                                <option value="">-- อู่นอก / อื่นๆ (ดูจากใบเสร็จ) --</option>
                                 {garages.map(g => (
                                     <option key={g.garage_id} value={g.garage_id}>{g.garage_name}</option>
                                 ))}
-                            </select></div>
-                        <div><label className="text-sm font-medium text-slate-700">ค่าใช้จ่ายจริง (บาท)</label>
-                            <input {...register('total_cost', { valueAsNumber: true })} type="number" step="0.01" className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" /></div>
-                        <div><label className="text-sm font-medium text-slate-700">หมายเหตุจากแอดมิน</label>
-                            <textarea {...register('note')} rows={3} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" /></div>
-                        <div className="flex justify-end gap-3 pt-4 border-t">
-                            <button type="button" onClick={() => setShowStatusModal(false)} className="px-4 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">ยกเลิก</button>
-                            <button type="submit" className="px-4 py-2 bg-[#8A1ABA] text-white rounded-lg text-sm font-medium hover:bg-[#72159c]">บันทึก</button>
+                            </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-sm font-medium text-slate-700">วันที่เข้าซ่อม</label>
+                                <Controller
+                                    control={control}
+                                    name="repair_start_date"
+                                    render={({ field }) => (
+                                        <DatePicker
+                                            selected={field.value ? new Date(field.value) : null}
+                                            onChange={date => field.onChange(date ? date.toLocaleDateString('en-CA') : '')}
+                                            dateFormat="dd/MM/yyyy"
+                                            placeholderText="วว/ดด/ปปปป"
+                                            className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-slate-800 bg-white"
+                                        />
+                                    )}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-slate-700">วันที่คาดว่าจะเสร็จ</label>
+                                <Controller
+                                    control={control}
+                                    name="estimated_end_date"
+                                    render={({ field }) => (
+                                        <DatePicker
+                                            selected={field.value ? new Date(field.value) : null}
+                                            onChange={date => field.onChange(date ? date.toLocaleDateString('en-CA') : '')}
+                                            dateFormat="dd/MM/yyyy"
+                                            placeholderText="วว/ดด/ปปปป"
+                                            className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-slate-800 bg-white"
+                                        />
+                                    )}
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-sm font-medium text-slate-700">ราคาประเมิน (บาท)</label>
+                                <input {...register('estimated_cost', { valueAsNumber: true })} type="number" step="0.01" placeholder="0.00" className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-slate-700">ค่าใช้จ่ายจริง (บาท)</label>
+                                <input {...register('total_cost', { valueAsNumber: true })} type="number" step="0.01" className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-slate-700">วันที่ซ่อมเสร็จจริง</label>
+                            <Controller
+                                control={control}
+                                name="repair_end_date"
+                                render={({ field }) => (
+                                    <DatePicker
+                                        selected={field.value ? new Date(field.value) : null}
+                                        onChange={date => field.onChange(date ? date.toLocaleDateString('en-CA') : '')}
+                                        dateFormat="dd/MM/yyyy"
+                                        placeholderText="วว/ดด/ปปปป"
+                                        className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-slate-800 bg-white"
+                                    />
+                                )}
+                            />
+                        </div>
+                        {/* Oil Grade - แสดงเฉพาะเมื่อสถานะ = COMPLETED */}
+                        {watchStatus === 'COMPLETED' && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                <label className="text-sm font-semibold text-amber-800 flex items-center gap-2">
+                                    🛢️ เกรดน้ำมันเครื่องที่เปลี่ยน
+                                    <span className="text-xs font-normal text-amber-600">(เพื่อคำนวณรอบแจ้งเตือนถัดไป)</span>
+                                </label>
+                                <select {...register('oil_grade')} className="mt-2 block w-full border border-amber-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 bg-white">
+                                    <option value="">— ไม่ระบุ / ไม่ได้เปลี่ยนน้ำมัน —</option>
+                                    <option value="MINERAL">🟡 ธรรมดา (Mineral) — เปลี่ยนอีกที 5,000 กม.</option>
+                                    <option value="SEMI_SYNTHETIC">🟠 กึ่งสังเคราะห์ (Semi-Synthetic) — เปลี่ยนอีกที 7,000 กม.</option>
+                                    <option value="FULLY_SYNTHETIC">🔵 สังเคราะห์แท้ (Fully Synthetic) — เปลี่ยนอีกที 10,000 กม.</option>
+                                </select>
+                            </div>
+                        )}
+                        <div>
+                            <label className="text-sm font-medium text-slate-700">หมายเหตุ</label>
+                            <textarea {...register('note')} rows={3} className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                        </div>
+                        <div className="flex justify-between items-center pt-4 border-t">
+                            {selectedRepair?.status === 'PENDING' ? (
+                                <button type="button" onClick={() => {
+                                    handleDelete(selectedRepair.request_id);
+                                    setShowStatusModal(false);
+                                }} className="px-3 py-2 bg-red-50 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-100 border border-red-200 transition-colors">
+                                    ลบคำร้อง
+                                </button>
+                            ) : (
+                                <div></div>
+                            )}
+                            <div className="flex gap-3">
+                                <button type="button" onClick={() => setShowStatusModal(false)} className="px-4 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">ยกเลิก</button>
+                                <button type="submit" className="px-4 py-2 bg-[#8A1ABA] text-white rounded-lg text-sm font-medium hover:bg-[#72159c]">บันทึก</button>
+                            </div>
                         </div>
                     </form>
                 </Modal>
             )}
+
+            {/* Detail Modal */}
             {showDetailModal && selectedDetailRepair && (
                 <Modal title={`รายละเอียดการส่งซ่อม: REQ-${String(selectedDetailRepair.request_id).padStart(4, '0')}`} onClose={() => setShowDetailModal(false)}>
                     <div className="space-y-4 text-sm">
@@ -294,23 +434,61 @@ export default function RepairsPage() {
                         </div>
                         <div className="bg-slate-50 p-3 rounded-lg border">
                             <p className="text-xs text-slate-400 mb-1">ประเภทการซ่อม / อาการแจ้งซ่อม</p>
-                            <span className="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded mr-2">{selectedDetailRepair.repair_type}</span>
+                            <RepairTypeBadge type={selectedDetailRepair.repair_type} />
                             <p className="text-slate-800 mt-1">{selectedDetailRepair.issue_description}</p>
                         </div>
+
+                        {/* Garage & Dates */}
                         <div className="grid grid-cols-2 gap-3">
                             <div className="bg-slate-50 p-3 rounded-lg border">
                                 <p className="text-xs text-slate-400">อู่ซ่อมบำรุง</p>
                                 <p className="font-medium text-slate-800">{selectedDetailRepair.garage?.garage_name || 'ยังไม่ระบุ'}</p>
+                                {selectedDetailRepair.garage?.phone && <p className="text-xs text-slate-400">{selectedDetailRepair.garage.phone}</p>}
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-lg border">
+                                <p className="text-xs text-slate-400">ระยะเวลาซ่อม</p>
+                                <p className="text-xs text-slate-700">เข้าซ่อม: <span className="font-semibold">{formatDate(selectedDetailRepair.repair_start_date)}</span></p>
+                                <p className="text-xs text-slate-700">คาดเสร็จ: <span className="font-semibold">{formatDate(selectedDetailRepair.estimated_end_date)}</span></p>
+                                {selectedDetailRepair.repair_end_date && (
+                                    <p className="text-xs text-emerald-700">เสร็จจริง: <span className="font-semibold">{formatDate(selectedDetailRepair.repair_end_date)}</span></p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Costs */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
+                                <p className="text-xs text-amber-600">ราคาประเมิน</p>
+                                <p className="font-semibold text-amber-800">
+                                    {selectedDetailRepair.estimated_cost
+                                        ? `${parseFloat(selectedDetailRepair.estimated_cost).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท`
+                                        : '-'}
+                                </p>
                             </div>
                             <div className="bg-slate-50 p-3 rounded-lg border">
                                 <p className="text-xs text-slate-400">ค่าใช้จ่ายรวม</p>
-                                <p className="font-semibold text-blue-600">{selectedDetailRepair.total_cost ? `${parseFloat(selectedDetailRepair.total_cost).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท` : '-'}</p>
+                                <p className="font-semibold text-blue-600">
+                                    {selectedDetailRepair.total_cost
+                                        ? `${parseFloat(selectedDetailRepair.total_cost).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท`
+                                        : '-'}
+                                </p>
                             </div>
                         </div>
+
                         {selectedDetailRepair.repair_detail && (
                             <div className="bg-slate-50 p-3 rounded-lg border">
                                 <p className="text-xs text-slate-400">รายการซ่อมบำรุงเพิ่มเติม</p>
                                 <p className="text-slate-700 mt-1">{selectedDetailRepair.repair_detail}</p>
+                            </div>
+                        )}
+                        {selectedDetailRepair.oil_grade && (
+                            <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg">
+                                <p className="text-xs text-amber-600 font-medium">🛢️ เกรดน้ำมันเครื่องที่ใช้</p>
+                                <p className="font-semibold text-amber-800 mt-1">
+                                    {selectedDetailRepair.oil_grade === 'MINERAL' && '🟡 ธรรมดา (Mineral) — 5,000 กม.'}
+                                    {selectedDetailRepair.oil_grade === 'SEMI_SYNTHETIC' && '🟠 กึ่งสังเคราะห์ (Semi-Synthetic) — 7,000 กม.'}
+                                    {selectedDetailRepair.oil_grade === 'FULLY_SYNTHETIC' && '🔵 สังเคราะห์แท้ (Fully Synthetic) — 10,000 กม.'}
+                                </p>
                             </div>
                         )}
                         {selectedDetailRepair.note && (
@@ -323,23 +501,16 @@ export default function RepairsPage() {
                             <div className="flex items-center justify-between mb-2">
                                 <p className="text-xs text-slate-400">รูปภาพหลักฐาน / ใบเสร็จ</p>
                                 {selectedDetailRepair.receipt_image && (
-                                    <a
-                                        href={selectedDetailRepair.receipt_image}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
-                                    >
+                                    <a href={selectedDetailRepair.receipt_image} target="_blank" rel="noopener noreferrer"
+                                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
                                         <ExternalLink size={12} /> เปิดรูปภาพขนาดเต็ม
                                     </a>
                                 )}
                             </div>
                             {selectedDetailRepair.receipt_image ? (
                                 <a href={selectedDetailRepair.receipt_image} target="_blank" rel="noopener noreferrer">
-                                    <img
-                                        src={selectedDetailRepair.receipt_image}
-                                        alt="ใบเสร็จ/หลักฐาน"
-                                        className="w-full max-h-64 object-contain rounded border bg-white cursor-pointer hover:opacity-90 transition-opacity"
-                                    />
+                                    <img src={selectedDetailRepair.receipt_image} alt="ใบเสร็จ/หลักฐาน"
+                                        className="w-full max-h-64 object-contain rounded border bg-white cursor-pointer hover:opacity-90 transition-opacity" />
                                 </a>
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-6 text-slate-400 gap-2">
