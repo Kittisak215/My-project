@@ -55,7 +55,8 @@ export default function AdminLayout() {
         let socketInstance;
         import('socket.io-client').then(({ io }) => {
             if (!isMounted) return;
-            socketInstance = io('http://localhost:5000', { withCredentials: true });
+            const socketUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') : 'http://localhost:5001';
+            socketInstance = io(socketUrl, { withCredentials: true });
             
             socketInstance.on('new_notification', () => {
                 fetchAlertCount();

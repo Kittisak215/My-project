@@ -61,7 +61,8 @@ function NotificationBell() {
         
         // เชื่อมต่อ Socket.io
         import('socket.io-client').then(({ io }) => {
-            const socket = io('http://localhost:5000', { withCredentials: true });
+            const socketUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') : 'http://localhost:5001';
+            const socket = io(socketUrl, { withCredentials: true });
             
             socket.on('connect', () => {
                 console.log('Socket connected:', socket.id);

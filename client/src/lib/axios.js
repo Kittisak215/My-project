@@ -1,8 +1,10 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: '/api',
+    // ให้มันอ่าน URL จาก Environment Variable ถ้ามี ไม่งั้นใช้ /api สำหรับตอน dev
+    baseURL: import.meta.env.VITE_API_URL || '/api', 
 });
+
 
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
