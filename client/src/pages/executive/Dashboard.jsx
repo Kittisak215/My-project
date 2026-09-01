@@ -66,10 +66,10 @@ function VehicleExpenseModal({ vehicleId, onClose }) {
             setLoading(true);
             try {
                 // Using the expense report endpoint to fetch specific vehicle's completed repairs
-                const res = await api.get('/report/expense', { params: { vehicleId, limit: 100 } });
-                setRepairs(res.data.expenses || []);
-                if (res.data.expenses?.length > 0) {
-                    setVehicle(res.data.expenses[0].vehicle);
+                const res = await api.get('/reports/expense', { params: { vehicleId, limit: 100 } });
+                setRepairs(res.data.data || []);
+                if (res.data.data?.length > 0) {
+                    setVehicle(res.data.data[0].vehicle);
                 }
             } catch (err) {
                 console.error(err);
@@ -114,10 +114,12 @@ function VehicleExpenseModal({ vehicleId, onClose }) {
                         <div className="space-y-4">
                             {repairs.map(repair => (
                                 <div key={repair.request_id} className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-violet-300 hover:shadow-md transition-all">
-                                    <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                                    <div className="flex flex-wrap items-start justify-between gap-3 mb-3 border-b border-slate-100 pb-3">
                                         <div className="flex items-center gap-3">
                                             <StatusBadge status={repair.status} />
-                                            <span className="text-sm font-bold text-slate-700">{repair.repair_type}</span>
+                                            <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${repair.repair_type === 'EMERGENCY' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
+                                                {repair.repair_type === 'GENERAL' ? 'ซ่อมทั่วไป' : repair.repair_type === 'EMERGENCY' ? 'ซ่อมฉุกเฉิน' : repair.repair_type}
+                                            </span>
                                         </div>
                                         <div className="text-right">
                                             <div className="text-lg font-extrabold text-violet-700">
@@ -126,7 +128,10 @@ function VehicleExpenseModal({ vehicleId, onClose }) {
                                         </div>
                                     </div>
                                     
-                                    <p className="text-sm text-slate-600 font-medium mb-4">{repair.description}</p>
+                                    <div className="mb-4">
+                                        <p className="text-xs text-slate-400 mb-1">รายละเอียดปัญหา/การซ่อม:</p>
+                                        <p className="text-sm text-slate-700 font-medium">{repair.issue_description || repair.description || 'ไม่ระบุรายละเอียด'}</p>
+                                    </div>
                                     
                                     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
                                         <div className="flex items-center gap-1.5"><Calendar size={14} className="text-slate-400"/> วันที่: {new Date(repair.created_at).toLocaleDateString('th-TH')}</div>
@@ -264,29 +269,24 @@ export default function ExecutiveDashboard() {
             <div
                 className="relative overflow-hidden rounded-3xl text-white p-6 md:p-8"
                 style={{
-                    background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 45%, #2d1b69 75%, #1e1b4b 100%)',
-                    boxShadow: '0 20px 40px -8px rgba(15,23,42,0.4)',
+                    background: 'linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #3b0764 100%)',
+                    boxShadow: '0 10px 30px -10px rgba(124,58,237,0.4)',
                     animation: 'fadeSlideUp 0.45s ease-out both',
                 }}
             >
                 {/* Ambient glow blobs */}
                 <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-20"
-                    style={{ background: 'radial-gradient(circle, #7c3aed, transparent 70%)' }} />
-                <div className="pointer-events-none absolute -bottom-16 -left-10 w-56 h-56 rounded-full opacity-15"
-                    style={{ background: 'radial-gradient(circle, #4f46e5, transparent 70%)' }} />
-
-                {/* Subtle grid overlay */}
-                <div className="pointer-events-none absolute inset-0 opacity-[0.04]"
-                    style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+                    style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.8), transparent 70%)' }} />
+                <div className="pointer-events-none absolute -bottom-16 -left-10 w-56 h-56 rounded-full opacity-20"
+                    style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.6), transparent 70%)' }} />
 
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
                     {/* Left: Title */}
                     <div>
                         {/* Badge */}
-                        <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full text-xs font-semibold"
-                            style={{ background: 'rgba(124,58,237,0.25)', border: '1px solid rgba(167,139,250,0.3)' }}>
+                        <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-violet-100 border border-white/20 backdrop-blur-sm">
                             <ShieldCheck size={13} className="text-violet-300" />
-                            <span className="text-violet-200">Executive Analytics</span>
+                            <span>Executive Analytics</span>
                             {/* Live ping */}
                             <span className="relative flex h-2 w-2 ml-0.5">
                                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"
@@ -296,36 +296,34 @@ export default function ExecutiveDashboard() {
                             <span className="text-emerald-300 ml-0.5">Live</span>
                         </div>
 
-                        <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight leading-tight">
+                        <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight leading-tight text-white">
                             ภาพรวมผู้บริหาร
                         </h1>
-                        <p className="text-sm text-slate-300 mt-1.5 max-w-lg leading-relaxed">
-                            สรุปสถิติสำคัญ สถานะความพร้อมของฝูงยาน และค่าใช้จ่ายซ่อมบำรุงจากฐานข้อมูลจริง
+                        <p className="text-sm text-violet-200 mt-1.5 max-w-lg leading-relaxed">
+                            สรุปสถานะการซ่อมบำรุงและค่าใช้จ่ายของยานพาหนะทั้งหมด
                         </p>
                     </div>
 
                     {/* Right: Vehicle count widget */}
-                    <div className="flex items-center gap-3 shrink-0">
-                        <div className="flex flex-col items-center gap-2 sm:flex-row rounded-2xl px-5 py-4"
-                            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)' }}>
-                            <div className="p-2.5 rounded-xl" style={{ background: 'rgba(16,185,129,0.2)' }}>
-                                <Car size={20} className="text-emerald-400" />
+                    <div className="flex items-center gap-3 shrink-0 flex-wrap">
+                        <div className="flex flex-col items-center gap-2 sm:flex-row rounded-2xl px-5 py-4 bg-white/10 border border-white/20 backdrop-blur-md">
+                            <div className="p-2.5 rounded-xl bg-white/20">
+                                <Car size={20} className="text-white" />
                             </div>
                             <div>
-                                <div className="text-xs text-slate-400 leading-none mb-0.5">รถในระบบทั้งหมด</div>
-                                <div className="text-2xl font-extrabold text-white leading-none">{totalVehicles} <span className="text-sm font-medium text-slate-300">คัน</span></div>
+                                <div className="text-xs font-semibold text-violet-200 mb-0.5">รถในระบบทั้งหมด</div>
+                                <div className="text-2xl font-extrabold text-white leading-none">{totalVehicles} <span className="text-sm font-medium text-violet-200">คัน</span></div>
                             </div>
                         </div>
 
-                        <div className="flex flex-col items-center gap-2 sm:flex-row rounded-2xl px-5 py-4"
-                            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)' }}>
-                            <div className="p-2.5 rounded-xl" style={{ background: 'rgba(245,158,11,0.2)' }}>
-                                <Wrench size={20} className="text-amber-400" />
+                        <div className="flex flex-col items-center gap-2 sm:flex-row rounded-2xl px-5 py-4 bg-white/10 border border-white/20 backdrop-blur-md">
+                            <div className="p-2.5 rounded-xl bg-amber-500/20">
+                                <Wrench size={20} className="text-amber-300" />
                             </div>
                             <div>
-                                <div className="text-xs text-slate-400 leading-none mb-0.5">กำลังซ่อมบำรุง</div>
+                                <div className="text-xs font-semibold text-violet-200 mb-0.5">กำลังซ่อมบำรุง</div>
                                 <div className="text-2xl font-extrabold text-white leading-none">
-                                    {unavailableVehicles} <span className="text-sm font-medium text-slate-300">คัน</span>
+                                    {unavailableVehicles} <span className="text-sm font-medium text-violet-200">คัน</span>
                                 </div>
                             </div>
                         </div>
@@ -333,24 +331,23 @@ export default function ExecutiveDashboard() {
                 </div>
 
                 {/* Expense total strip at bottom of banner */}
-                <div className="relative z-10 mt-6 pt-5 border-t flex flex-wrap items-center gap-6"
-                    style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+                <div className="relative z-10 mt-6 pt-5 border-t border-white/10 flex flex-wrap items-center gap-6">
                     <div>
-                        <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">ค่าซ่อมรวมปีปัจจุบัน</span>
+                        <span className="text-xs font-semibold uppercase tracking-widest text-violet-300">ค่าซ่อมรวมปีปัจจุบัน</span>
                         <div className="text-xl md:text-2xl font-extrabold text-white mt-0.5">
                             ฿{yearlyExpenseTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                         </div>
                     </div>
-                    <div className="h-8 w-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
+                    <div className="h-8 w-px bg-white/10" />
                     <div>
-                        <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">ระยะทางสะสมรวม</span>
+                        <span className="text-xs font-semibold uppercase tracking-widest text-violet-300">ระยะทางสะสมรวม</span>
                         <div className="text-xl md:text-2xl font-extrabold text-white mt-0.5">
-                            {totalMileage.toLocaleString('th-TH')} <span className="text-sm font-medium text-slate-300">กม.</span>
+                            {totalMileage.toLocaleString('th-TH')} <span className="text-sm font-medium text-violet-200">กม.</span>
                         </div>
                     </div>
-                    <div className="h-8 w-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
+                    <div className="h-8 w-px bg-white/10" />
                     <div>
-                        <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">ความพร้อมฝูงยาน</span>
+                        <span className="text-xs font-semibold uppercase tracking-widest text-violet-300">ความพร้อมยานพาหนะ</span>
                         <div className="flex items-center gap-2 mt-0.5">
                             <div className="text-xl md:text-2xl font-extrabold text-white">{availabilityRate}%</div>
                             <span className={clsx(
@@ -379,7 +376,7 @@ export default function ExecutiveDashboard() {
                         iconGradient="linear-gradient(135deg,#7c3aed,#4f46e5)"
                         iconShadow="0 4px 12px -2px rgba(124,58,237,0.35)"
                         title="ค่าใช้จ่ายซ่อมบำรุงรายปี"
-                        subtitle="เปรียบเทียบยอดรวมจากฐานข้อมูลจริง"
+                        subtitle="เปรียบเทียบยอดรวมแต่ละปี"
                         rightSlot={
                             <div className="text-right">
                                 <div className="text-xs text-slate-400 font-medium">รวมปีปัจจุบัน</div>
@@ -468,14 +465,6 @@ export default function ExecutiveDashboard() {
                         </div>
                     )}
 
-                    <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                        <span className="flex items-center gap-1.5 font-medium text-slate-500">
-                            <TrendingUp size={13} className="text-violet-500" /> วิเคราะห์แนวโน้มรายจ่าย
-                        </span>
-                        <span className="bg-violet-50 text-violet-600 px-2.5 py-1 rounded-lg font-semibold text-xs border border-violet-100">
-                            ข้อมูลจากระบบจริง
-                        </span>
-                    </div>
                 </div>
 
                 {/* ── Donut Chart (5 cols) ── */}
@@ -487,7 +476,7 @@ export default function ExecutiveDashboard() {
                         icon={PieChart}
                         iconGradient="linear-gradient(135deg,#10b981,#059669)"
                         iconShadow="0 4px 12px -2px rgba(16,185,129,0.35)"
-                        title="อัตราความพร้อมฝูงยาน"
+                        title="อัตราความพร้อมยานพาหนะ"
                         subtitle="สัดส่วนสถานะยานพาหนะในระบบ"
                         rightSlot={
                             <span className={clsx(
@@ -563,14 +552,11 @@ export default function ExecutiveDashboard() {
                 <div className="px-6 md:px-8 py-5 flex flex-wrap items-center justify-between gap-3"
                     style={{ borderBottom: '1px solid #f1f5f9', background: 'linear-gradient(to right, #faf5ff, #f8fafc)' }}>
                     <div>
-                        <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                            <span className="text-lg">🏆</span> Top 5 ยานพาหนะค่าซ่อมสูงสุดปีนี้
+                        <h2 className="text-base font-bold text-slate-800">
+                            5 อันดับยานพาหนะค่าซ่อมสูงสุดปีนี้
                         </h2>
-                        <p className="text-xs text-slate-400 mt-0.5">จัดอันดับจากยอดรวมรายจ่ายการซ่อมบำรุงที่อนุมัติแล้วในฐานข้อมูล</p>
+                        <p className="text-xs text-slate-400 mt-0.5">จัดอันดับจากยอดรวมรายจ่ายการซ่อมบำรุงที่อนุมัติแล้ว</p>
                     </div>
-                    <span className="text-xs font-semibold text-violet-600 bg-violet-50 border border-violet-100 px-3 py-1 rounded-full flex items-center gap-1.5">
-                        <Activity size={12} /> ข้อมูลจริง
-                    </span>
                 </div>
 
                 {/* Mobile Cards */}

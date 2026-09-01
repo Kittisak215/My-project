@@ -31,6 +31,7 @@ import DriverDashboard from './pages/driver/Dashboard';
 import MileagePage from './pages/driver/Mileage';
 import DriverRepairPage from './pages/driver/Repair';
 import DriverHistoryPage from './pages/driver/History';
+import DriverProfilePage from './pages/driver/Profile';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user } = useAuthStore();
@@ -64,7 +65,6 @@ function App() {
           <Route path="repairs" element={<RepairsPage />} />
           <Route path="garages" element={<GaragesPage />} />
           <Route path="alerts" element={<AlertsPage />} />
-          <Route path="approvals" element={<ApprovalsPage />} />
         </Route>
 
         {/* Executive Routes */}
@@ -80,6 +80,7 @@ function App() {
           <Route path="mileage" element={<MileagePage />} />
           <Route path="repair" element={<DriverRepairPage />} />
           <Route path="history" element={<DriverHistoryPage />} />
+          <Route path="profile" element={<DriverProfilePage />} />
         </Route>
       </Routes>
     </BrowserRouter>

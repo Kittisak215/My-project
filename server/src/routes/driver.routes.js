@@ -8,4 +8,5 @@ router.get('/:id', c.getById);
 router.post('/', requireRole('ADMIN'), c.create);
 router.put('/:id', requireRole('ADMIN'), c.update);
 router.delete('/:id', requireRole('ADMIN'), c.remove);
+router.delete('/:id/hard', requireRole('ADMIN'), c.hardDelete);
 module.exports = router;

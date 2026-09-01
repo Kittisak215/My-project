@@ -15,11 +15,33 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401 || error.response?.status === 403) {
+        const status = error.response?.status;
+        const message = error.response?.data?.message || '';
+
+        // 401 = ไม่มี token หรือ token หมดอายุ → ออกจากระบบ
+        // 403 + ข้อความเกี่ยวกับ token → token ไม่ valid → ออกจากระบบ
+        // 403 + ข้อความเกี่ยวกับ role → แค่ reject error ธรรมดา ไม่ logout
+        const isTokenError =
+            status === 401 ||
+            (status === 403 && (
+                message.toLowerCase().includes('token') ||
+                message.toLowerCase().includes('expired')
+            ));
+
+        if (isTokenError) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            window.location.href = '/login';
+            // ล้าง Zustand state ด้วย
+            try {
+                localStorage.removeItem('auth-storage');
+            // eslint-disable-next-line no-empty
+            } catch {}
+            // หลีกเลี่ยงการ redirect ซ้ำ
+            if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+            }
         }
+
         return Promise.reject(error);
     }
 );

@@ -19,7 +19,7 @@ export default function StatusBadge({ status, type = 'repair', className = '' })
         const config = {
             PENDING: { label: 'รอตรวจสอบ', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Clock },
             IN_PROGRESS: { label: 'กำลังดำเนินการ', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: PlayCircle },
-            AWAITING_APPROVAL: { label: 'รออนุมัติจากผู้บริหาร', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Hourglass },
+            AWAITING_APPROVAL: { label: 'รออนุมัติ', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Hourglass },
             APPROVED: { label: 'อนุมัติแล้ว', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckSquare },
             REJECTED: { label: 'ไม่อนุมัติ', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
             COMPLETED: { label: 'ซ่อมเสร็จสิ้น', color: 'bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold', icon: CheckCircle2 }

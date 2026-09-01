@@ -58,7 +58,7 @@ exports.login = async (req, res) => {
         const token = jwt.sign(
             { user_id: user.user_id, username: user.username, role: user.role, driver_id: user.driver_id },
             process.env.JWT_SECRET,
-            { expiresIn: '8h' }
+            { expiresIn: '30d' }
         );
 
         const { password_hash, ...userOut } = user;
@@ -75,5 +75,28 @@ exports.getMe = async (req, res) => {
         if (!user) return res.status(404).json({ message: 'User not found' });
         const { password_hash, ...userOut } = user;
         res.json(userOut);
+    } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.changePassword = async (req, res) => {
+    try {
+        const { current_password, new_password } = req.body;
+        const user_id = req.user.user_id;
+
+        const user = await prisma.user.findUnique({ where: { user_id } });
+        if (!user) return res.status(404).json({ message: 'ไม่พบบัญชีผู้ใช้' });
+
+        const valid = await bcrypt.compare(current_password, user.password_hash);
+        if (!valid) return res.status(401).json({ message: 'รหัสผ่านเดิมไม่ถูกต้อง' });
+
+        const salt = await bcrypt.genSalt(10);
+        const password_hash = await bcrypt.hash(new_password, salt);
+
+        await prisma.user.update({
+            where: { user_id },
+            data: { password_hash }
+        });
+
+        res.json({ message: 'เปลี่ยนรหัสผ่านสำเร็จ' });
     } catch (err) { res.status(500).json({ message: err.message }); }
 };

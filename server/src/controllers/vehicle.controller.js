@@ -13,7 +13,16 @@ exports.getAll = async (req, res) => {
                 { model: { contains: searchTerm, mode: 'insensitive' } },
             ];
         }
-        if (status) where.status = status;
+        if (status) {
+            if (status === 'INACTIVE') {
+                where.is_active = false;
+            } else {
+                where.status = status;
+                if (req.query.is_active === undefined) {
+                    where.is_active = true;
+                }
+            }
+        }
         if (req.query.is_active !== undefined && req.query.is_active !== '') {
             where.is_active = req.query.is_active === 'true';
         }
@@ -24,7 +33,7 @@ exports.getAll = async (req, res) => {
                 include: {
                     driver: true,
                     vehicleType: true,
-                    mileageLogs: { orderBy: { record_month: 'desc' }, take: 1 }
+                    mileageLogs: { orderBy: [{ record_date: 'desc' }, { mileage_id: 'desc' }], take: 1 }
                 },
                 orderBy: { created_at: 'desc' },
             }),
@@ -48,7 +57,7 @@ exports.getById = async (req, res) => {
                 driver: true,
                 vehicleType: true,
                 repairs: { orderBy: { created_at: 'desc' }, take: 5 },
-                mileageLogs: { orderBy: { record_month: 'desc' }, take: 6 },
+                mileageLogs: { orderBy: [{ record_date: 'desc' }, { mileage_id: 'desc' }], take: 6 },
                 alerts: true
             },
         });

@@ -43,7 +43,7 @@ exports.getDriverNotifications = async (req, res) => {
             const statusLabel = {
                 PENDING: 'รอตรวจสอบ',
                 IN_PROGRESS: 'กำลังดำเนินการ',
-                AWAITING_APPROVAL: 'รออนุมัติจากผู้บริหาร',
+                AWAITING_APPROVAL: 'รออนุมัติ',
                 APPROVED: 'อนุมัติแล้ว',
                 REJECTED: 'ไม่อนุมัติ',
                 COMPLETED: 'ซ่อมเสร็จสิ้น — ไปรับรถได้เลย',
@@ -156,9 +156,9 @@ exports.getAdminNotifications = async (req, res) => {
     try {
         const notifications = [];
 
-        // 1. คำร้องซ่อม (PENDING, APPROVED, REJECTED)
+        // 1. คำร้องซ่อม (PENDING, AWAITING_APPROVAL, APPROVED, REJECTED)
         const repairs = await prisma.repairRequest.findMany({
-            where: { status: { in: ['PENDING', 'APPROVED', 'REJECTED'] } },
+            where: { status: { in: ['PENDING', 'AWAITING_APPROVAL', 'APPROVED', 'REJECTED'] } },
             include: { vehicle: { select: { license_plate: true } } },
             orderBy: { created_at: 'desc' },
             take: 20
@@ -166,22 +166,27 @@ exports.getAdminNotifications = async (req, res) => {
 
         const statusLabel = {
             PENDING: 'คำร้องซ่อมใหม่ (รอตรวจสอบ)',
+            AWAITING_APPROVAL: 'รออนุมัติ',
             APPROVED: 'คำร้องซ่อมได้รับการอนุมัติแล้ว',
             REJECTED: 'คำร้องซ่อมถูกปฏิเสธ',
         };
         const statusType = {
             PENDING: 'warning',
+            AWAITING_APPROVAL: 'warning',
             APPROVED: 'success',
             REJECTED: 'error',
         };
 
         for (const r of repairs) {
             const reqCode = `REQ-${String(r.request_id).padStart(4, '0')}`;
+            const isEmergency = r.repair_type === 'EMERGENCY';
+            const titlePrefix = isEmergency ? '🚨 [ฉุกเฉิน] ' : '';
+            
             notifications.push({
                 id: `admin-repair-${r.request_id}`,
-                type: statusType[r.status] || 'info',
+                type: isEmergency && r.status === 'PENDING' ? 'error' : (statusType[r.status] || 'info'),
                 category: 'REPAIR_STATUS',
-                title: `${reqCode} — ${statusLabel[r.status] || r.status}`,
+                title: `${titlePrefix}${reqCode} — ${statusLabel[r.status] || r.status}`,
                 body: `ทะเบียน ${r.vehicle?.license_plate || 'ไม่ระบุ'}: ${r.issue_description}`,
                 created_at: r.created_at,
             });
@@ -197,17 +202,21 @@ exports.getAdminNotifications = async (req, res) => {
             OIL_CHANGE: 'ถึงรอบเปลี่ยนน้ำมันเครื่อง',
             TIRE_CHANGE: 'ถึงรอบเปลี่ยนยาง',
             INSPECTION: 'ถึงรอบตรวจสภาพรถ',
+            EMERGENCY: 'แจ้งซ่อมฉุกเฉิน',
             OTHER: 'แจ้งเตือนบำรุงรักษา',
         };
 
         for (const a of alerts) {
+            const isEmergency = a.alert_type === 'EMERGENCY';
             notifications.push({
                 id: `admin-maint-${a.alert_id}`,
-                type: 'warning',
+                type: isEmergency ? 'error' : 'warning',
                 category: 'MAINTENANCE',
-                title: alertTypeLabel[a.alert_type] || 'แจ้งเตือนบำรุงรักษา',
-                body: `ทะเบียน ${a.vehicle?.license_plate || 'ไม่ระบุ'}: ต้องบำรุงรักษาที่ ${a.next_service_mileage.toLocaleString()} กม.`,
-                created_at: new Date().toISOString(),
+                title: isEmergency ? `🚨 [ฉุกเฉิน] รถมีปัญหา!` : (alertTypeLabel[a.alert_type] || 'แจ้งเตือนบำรุงรักษา'),
+                body: isEmergency 
+                    ? `ทะเบียน ${a.vehicle?.license_plate || 'ไม่ระบุ'} แจ้งเหตุฉุกเฉิน กรุณาตรวจสอบด่วน`
+                    : `ทะเบียน ${a.vehicle?.license_plate || 'ไม่ระบุ'}: ต้องบำรุงรักษาที่ ${a.next_service_mileage.toLocaleString()} กม.`,
+                created_at: a.created_at ? new Date(a.created_at).toISOString() : new Date().toISOString(),
             });
         }
 
@@ -229,30 +238,7 @@ exports.getAdminNotifications = async (req, res) => {
  */
 exports.getExecutiveNotifications = async (req, res) => {
     try {
-        const notifications = [];
-
-        const repairs = await prisma.repairRequest.findMany({
-            where: { status: 'AWAITING_APPROVAL' },
-            include: { vehicle: { select: { license_plate: true } } },
-            orderBy: { created_at: 'desc' },
-        });
-
-        for (const r of repairs) {
-            const reqCode = `REQ-${String(r.request_id).padStart(4, '0')}`;
-            notifications.push({
-                id: `exec-repair-${r.request_id}`,
-                type: 'warning',
-                category: 'APPROVAL_NEEDED',
-                title: `${reqCode} — รออนุมัติค่าซ่อม`,
-                body: `ทะเบียน ${r.vehicle?.license_plate || 'ไม่ระบุ'}: ยอดประเมิน ${Number(r.estimated_cost || 0).toLocaleString()} บาท`,
-                created_at: r.created_at,
-            });
-        }
-
-        notifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        const unreadCount = notifications.length;
-
-        res.json({ notifications, unreadCount });
+        res.json({ notifications: [], unreadCount: 0 });
     } catch (err) {
         console.error('getExecutiveNotifications error:', err);
         res.status(500).json({ message: err.message });

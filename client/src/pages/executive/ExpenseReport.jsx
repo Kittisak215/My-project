@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import {
     Search, Download, Printer, RotateCcw,
     TrendingUp, Calendar, Car, FileText, ChevronLeft, ChevronRight,
-    Wrench, AlertTriangle, CheckCircle2, ShieldCheck, DollarSign
+    Wrench, AlertTriangle, CheckCircle2, ShieldCheck, DollarSign,
+    ChevronDown, FileSpreadsheet, FileOutput
 } from 'lucide-react';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
@@ -41,7 +42,7 @@ const categoryMap = {
 function getCategoryBadge(type) {
     const item = categoryMap[type] || { label: type || 'ทั่วไป', bg: 'bg-slate-50 text-slate-700 border-slate-200' };
     return (
-        <span className={clsx('px-2.5 py-0.5 rounded-full text-xs font-semibold border inline-block', item.bg)}>
+        <span className={clsx('px-2.5 py-0.5 rounded-full text-xs font-semibold border inline-block print:bg-transparent print:border-none print:text-black print:p-0 print:font-normal', item.bg)}>
             {item.label}
         </span>
     );
@@ -53,6 +54,7 @@ export default function ExpenseReportPage() {
     const [data, setData] = useState({ data: [], totalAmount: 0, avgAmount: 0, maxAmount: 0, total: 0, totalPages: 1 });
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
+    const [exportMenuOpen, setExportMenuOpen] = useState(false);
     const [vehicles, setVehicles] = useState([]);
     const [page, setPage] = useState(1);
 
@@ -171,9 +173,15 @@ export default function ExpenseReportPage() {
             const csvRows = [headers.join(',')];
 
             rows.forEach(r => {
-                const dateStr = (r.repair_end_date || r.request_date || r.created_at)
-                    ? new Date(r.repair_end_date || r.request_date || r.created_at).toLocaleDateString('th-TH')
-                    : '-';
+                let dateStr = '-';
+                const dVal = r.repair_end_date || r.request_date || r.created_at;
+                if (dVal) {
+                    const d = new Date(dVal);
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    dateStr = `${yyyy}-${mm}-${dd}`;
+                }
                 const code = `REQ-${String(r.request_id).padStart(4, '0')}`;
                 const plate = `"${(r.vehicle?.license_plate || '-').replace(/"/g, '""')}"`;
                 const brand = `"${(`${r.vehicle?.brand || ''} ${r.vehicle?.model || ''}`).trim() || '-'}"`;
@@ -207,30 +215,62 @@ export default function ExpenseReportPage() {
     };
 
     return (
-        <div className="space-y-6 pb-12">
+        <div className="space-y-6 pb-12 print:space-y-4 print:pb-0 print:bg-white print:p-4">
+
+            {/* Print Styles */}
+            <style type="text/css" media="print">
+                {`
+                    @page { 
+                        size: A4 portrait; 
+                        margin: 1.2cm 1cm; /* Removes browser default headers/footers in most browsers */
+                    }
+                    body { 
+                        -webkit-print-color-adjust: exact; 
+                        print-color-adjust: exact;
+                        font-family: ui-sans-serif, system-ui, sans-serif;
+                    }
+                `}
+            </style>
 
             {/* ══════════════════════════════════════════
-                COMMAND BANNER
+                PRINT HEADER & FORMAL SUMMARY (Visible ONLY on Print)
+            ══════════════════════════════════════════ */}
+            <div className="hidden print:block text-center pb-4 border-b border-slate-400 mb-6 mt-0">
+                <h1 className="text-xl font-bold text-black mb-2 print:font-sans">รายงานสรุปค่าใช้จ่ายการซ่อมบำรุงยานพาหนะ</h1>
+                <p className="text-sm text-slate-700 mb-4 print:font-sans print:font-normal">
+                    ข้อมูล ณ วันที่: {new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+                <div className="text-sm text-slate-800 flex items-center justify-between px-8 print:font-sans print:font-medium">
+                    <span>จำนวนรายการซ่อม: {data.total || 0} รายการ</span>
+                    <span>ยอดรวมค่าใช้จ่ายทั้งสิ้น: ฿{(data.totalAmount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                    <span>ค่าเฉลี่ยต่อรายการ: ฿{(data.avgAmount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                </div>
+            </div>
+
+            {/* ══════════════════════════════════════════
+                COMMAND BANNER (Hidden on Print)
             ══════════════════════════════════════════ */}
             <div
-                className="relative overflow-hidden rounded-3xl text-white p-6 md:p-8"
+                className="relative rounded-3xl text-white p-6 md:p-8 print:hidden"
                 style={{
-                    background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 45%, #2d1b69 75%, #1e1b4b 100%)',
-                    boxShadow: '0 20px 40px -8px rgba(15,23,42,0.4)',
+                    background: 'linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #3b0764 100%)',
+                    boxShadow: '0 10px 30px -10px rgba(124,58,237,0.4)',
                     animation: 'fadeSlideUp 0.45s ease-out both',
                 }}
             >
-                <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-20"
-                    style={{ background: 'radial-gradient(circle, #7c3aed, transparent 70%)' }} />
-                <div className="pointer-events-none absolute -bottom-16 -left-10 w-56 h-56 rounded-full opacity-15"
-                    style={{ background: 'radial-gradient(circle, #4f46e5, transparent 70%)' }} />
+                {/* Ambient glow blobs - Wrapped in overflow-hidden to prevent clipping the dropdown */}
+                <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+                    <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-20"
+                        style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.8), transparent 70%)' }} />
+                    <div className="absolute -bottom-16 -left-10 w-56 h-56 rounded-full opacity-20"
+                        style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.6), transparent 70%)' }} />
+                </div>
 
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
                     <div>
-                        <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full text-xs font-semibold"
-                            style={{ background: 'rgba(124,58,237,0.25)', border: '1px solid rgba(167,139,250,0.3)' }}>
+                        <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-violet-100 border border-white/20 backdrop-blur-sm">
                             <ShieldCheck size={13} className="text-violet-300" />
-                            <span className="text-violet-200">Executive Report</span>
+                            <span>Executive Report</span>
                             <span className="relative flex h-2 w-2 ml-0.5">
                                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"
                                     style={{ animation: 'pulseRing 1.8s ease-out infinite' }} />
@@ -238,33 +278,67 @@ export default function ExpenseReportPage() {
                             </span>
                             <span className="text-emerald-300 ml-0.5">Live Data</span>
                         </div>
-                        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">รายงานสรุปค่าใช้จ่ายการซ่อมบำรุง</h1>
-                        <p className="text-sm text-slate-300 mt-1.5 max-w-xl">
-                            สรุปและวิเคราะห์ค่าใช้จ่ายการซ่อมบำรุงยานพาหนะตามช่วงเวลา ยานพาหนะ และหมวดหมู่จากฐานข้อมูลจริง
+                        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+                            รายงานสรุปค่าใช้จ่ายการซ่อมบำรุง
+                        </h1>
+                        <p className="text-sm text-violet-200 mt-1.5 max-w-xl leading-relaxed">
+                            สรุปและวิเคราะห์ค่าใช้จ่ายการซ่อมบำรุงยานพาหนะตามช่วงเวลา และยานพาหนะ
                         </p>
                     </div>
 
                     {/* Quick export/print buttons */}
-                    <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                    <div className="relative">
                         <button
-                            onClick={handleExportCSV}
+                            onClick={() => setExportMenuOpen(!exportMenuOpen)}
                             disabled={exporting}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50"
-                            style={{
-                                background: 'linear-gradient(135deg, #10b981, #059669)',
-                                boxShadow: '0 4px 12px -2px rgba(16,185,129,0.4)',
-                            }}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold text-violet-700 bg-white hover:bg-violet-50 transition-all duration-200 shadow-sm active:scale-95 disabled:opacity-50"
                         >
-                            <Download size={16} />
-                            {exporting ? 'กำลังส่งออก...' : 'ส่งออก CSV (Excel)'}
+                            <FileOutput size={16} />
+                            {exporting ? 'กำลังเตรียมเอกสาร...' : 'ส่งออกข้อมูล (Export)'}
+                            <ChevronDown size={14} className={clsx("transition-transform duration-200 ml-1", exportMenuOpen && "rotate-180")} />
                         </button>
-                        <button
-                            onClick={handlePrint}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/15 transition-all duration-200"
-                        >
-                            <Printer size={16} />
-                            พิมพ์รายงาน
-                        </button>
+
+                        {/* Dropdown Menu */}
+                        {exportMenuOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setExportMenuOpen(false)}></div>
+                                <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg shadow-violet-900/10 border border-slate-100 py-2 z-50 overflow-hidden transform origin-top-right transition-all">
+                                    <div className="px-4 py-2 border-b border-slate-50">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">เลือกรูปแบบไฟล์</p>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setExportMenuOpen(false);
+                                            handlePrint();
+                                        }}
+                                        className="w-full text-left px-4 py-3 text-xs md:text-sm font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                                    >
+                                        <div className="p-1.5 rounded-lg bg-slate-100 text-slate-500">
+                                            <Printer size={16} />
+                                        </div>
+                                        <div>
+                                            <p>พิมพ์รายงาน (PDF)</p>
+                                            <p className="text-[10px] font-normal text-slate-400 mt-0.5">รูปแบบเอกสารทางการ</p>
+                                        </div>
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setExportMenuOpen(false);
+                                            handleExportCSV();
+                                        }}
+                                        className="w-full text-left px-4 py-3 text-xs md:text-sm font-semibold text-slate-700 hover:bg-emerald-50 flex items-center gap-3 transition-colors"
+                                    >
+                                        <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-600">
+                                            <FileSpreadsheet size={16} />
+                                        </div>
+                                        <div>
+                                            <p>ส่งออกเป็น CSV</p>
+                                            <p className="text-[10px] font-normal text-slate-400 mt-0.5">สำหรับวิเคราะห์ใน Excel</p>
+                                        </div>
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
@@ -272,7 +346,7 @@ export default function ExpenseReportPage() {
             {/* ══════════════════════════════════════════
                 INTERACTIVE FILTER CARD
             ══════════════════════════════════════════ */}
-            <div className="bg-white rounded-3xl p-5 md:p-6 border border-slate-100 shadow-sm space-y-4">
+            <div className="bg-white rounded-3xl p-4 md:p-5 border border-slate-100 shadow-sm space-y-3 print:hidden">
                 {/* Date presets strip */}
                 <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
@@ -341,7 +415,7 @@ export default function ExpenseReportPage() {
                             onChange={e => setFilters(f => ({ ...f, vehicleId: e.target.value }))}
                             className="w-full h-10 border border-slate-200 rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-colors bg-white"
                         >
-                            <option value="all">🚗 รถทุกคันในระบบ</option>
+                            <option value="all">รถทุกคันในระบบ</option>
                             {vehicles.map(v => (
                                 <option key={v.vehicle_id || v.id} value={v.vehicle_id || v.id}>
                                     {v.license_plate} {v.brand ? `(${v.brand} ${v.model || ''})` : ''}
@@ -357,10 +431,9 @@ export default function ExpenseReportPage() {
                             onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
                             className="w-full h-10 border border-slate-200 rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 transition-colors bg-white"
                         >
-                            <option value="all">📂 ทุกหมวดหมู่</option>
-                            <option value="GENERAL">ซ่อมทั่วไป (General)</option>
-                            <option value="MAINTENANCE">บำรุงรักษาตามระยะ (Maintenance)</option>
-                            <option value="EMERGENCY">ซ่อมฉุกเฉิน (Emergency)</option>
+                            <option value="all">ทุกหมวดหมู่</option>
+                            <option value="GENERAL">ซ่อมทั่วไป</option>
+                            <option value="EMERGENCY">ซ่อมฉุกเฉิน</option>
                         </select>
                     </div>
 
@@ -392,9 +465,9 @@ export default function ExpenseReportPage() {
             {/* ══════════════════════════════════════════
                 SUMMARY STATS STRIP
             ══════════════════════════════════════════ */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
                 <div
-                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-200"
+                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-200 print:shadow-none print:border-slate-300 print:break-inside-avoid"
                     style={{ animation: 'fadeSlideUp 0.4s ease-out 0.05s both' }}
                 >
                     <div className="flex items-start justify-between">
@@ -415,7 +488,7 @@ export default function ExpenseReportPage() {
                 </div>
 
                 <div
-                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-200"
+                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-200 print:shadow-none print:border-slate-300 print:break-inside-avoid"
                     style={{ animation: 'fadeSlideUp 0.4s ease-out 0.1s both' }}
                 >
                     <div className="flex items-start justify-between">
@@ -435,7 +508,7 @@ export default function ExpenseReportPage() {
                 </div>
 
                 <div
-                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-200"
+                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-200 print:shadow-none print:border-slate-300 print:break-inside-avoid"
                     style={{ animation: 'fadeSlideUp 0.4s ease-out 0.15s both' }}
                 >
                     <div className="flex items-start justify-between">
@@ -453,7 +526,7 @@ export default function ExpenseReportPage() {
                 </div>
 
                 <div
-                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-200"
+                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-200 print:shadow-none print:border-slate-300 print:break-inside-avoid"
                     style={{ animation: 'fadeSlideUp 0.4s ease-out 0.2s both' }}
                 >
                     <div className="flex items-start justify-between">
@@ -475,7 +548,7 @@ export default function ExpenseReportPage() {
                 CATEGORY BREAKDOWN
             ══════════════════════════════════════════ */}
             {data.categoryBreakdown && data.categoryBreakdown.length > 0 && (
-                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/60 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/60 flex flex-col md:flex-row md:items-center justify-between gap-3 print:hidden">
                     <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 shrink-0">
                         <span className="w-2 h-2 rounded-full bg-violet-600"></span>
                         <span>สัดส่วนตามประเภทการซ่อม:</span>
@@ -501,11 +574,11 @@ export default function ExpenseReportPage() {
                 REPORT TABLE & LIST
             ══════════════════════════════════════════ */}
             <div
-                className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm"
+                className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm print:shadow-none print:border-none print:rounded-none"
                 style={{ animation: 'fadeSlideUp 0.5s ease-out 0.3s both' }}
             >
                 {/* Table Header Strip */}
-                <div className="px-6 py-5 flex items-center justify-between flex-wrap gap-3 border-b border-slate-100 bg-linear-to-r from-violet-50/50 to-slate-50">
+                <div className="px-6 py-5 flex items-center justify-between flex-wrap gap-3 border-b border-slate-100 bg-linear-to-r from-violet-50/50 to-slate-50 print:hidden">
                     <div>
                         <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
                             <span className="p-1.5 rounded-lg bg-violet-100">
@@ -526,7 +599,7 @@ export default function ExpenseReportPage() {
                 </div>
 
                 {/* Mobile Cards */}
-                <div className="md:hidden divide-y divide-slate-100">
+                <div className="md:hidden divide-y divide-slate-100 print:hidden">
                     {loading && (
                         <p className="text-center py-12 text-slate-400 text-sm animate-pulse">กำลังโหลดข้อมูล...</p>
                     )}
@@ -545,9 +618,9 @@ export default function ExpenseReportPage() {
                             : '-';
                         const desc = r.issue_description || r.repair_detail || r.description || '-';
                         return (
-                            <div key={r.request_id || r.id} className="p-4 hover:bg-violet-50/20 transition-colors space-y-2">
+                            <div key={r.request_id || r.id} className="p-4 hover:bg-slate-50/60 transition-colors space-y-2.5">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-md">
+                                    <span className="text-sm font-semibold text-blue-600">
                                         REQ-{String(r.request_id).padStart(4, '0')}
                                     </span>
                                     <span className="text-xs text-slate-400">{dateStr}</span>
@@ -557,17 +630,17 @@ export default function ExpenseReportPage() {
                                         <p className="font-bold text-slate-800 text-sm">{r.vehicle?.license_plate}</p>
                                         <p className="text-xs text-slate-400">{r.vehicle?.brand} {r.vehicle?.model}</p>
                                     </div>
-                                    <p className="text-base font-extrabold text-rose-600">
+                                    <p className="text-base font-extrabold text-slate-800">
                                         ฿{(Number(r.total_cost) || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                                     </p>
                                 </div>
-                                <div className="flex items-center justify-between pt-1">
+                                <div className="flex items-center justify-between pt-0.5">
                                     {getCategoryBadge(r.repair_type)}
                                     <span className="text-xs text-slate-500 truncate max-w-45">
-                                        {r.garage?.garage_name || '-'}
+                                        {r.garage?.garage_name ? `📍 ${r.garage.garage_name}` : '—'}
                                     </span>
                                 </div>
-                                <p className="text-xs text-slate-500 line-clamp-2 bg-slate-50 p-2 rounded-lg">
+                                <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100/80">
                                     {desc}
                                 </p>
                             </div>
@@ -576,23 +649,23 @@ export default function ExpenseReportPage() {
                 </div>
 
                 {/* Desktop Table (Optimized for Screen Fit) */}
-                <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead style={{ background: '#faf5ff', borderBottom: '1px solid #f1f5f9' }}>
+                <div className="hidden md:block overflow-x-auto print:block">
+                    <table className="w-full text-sm text-left print:text-slate-800 print:text-xs print:border-collapse print:font-sans">
+                        <thead className="bg-slate-50/80 text-slate-600 border-b border-slate-200/80 print:bg-slate-50 print:text-black print:border-b-2 print:border-slate-400">
                             <tr>
-                                <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-500 w-32">
+                                <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 w-36 print:w-auto print:text-black print:font-bold print:py-2 print:px-2 print:border print:border-slate-300">
                                     วันที่ / เลขคำร้อง
                                 </th>
-                                <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-500 w-44">
+                                <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 w-48 print:w-auto print:text-black print:font-bold print:py-2 print:px-2 print:border print:border-slate-300">
                                     ยานพาหนะ / ผู้รับผิดชอบ
                                 </th>
-                                <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-500 w-32 text-center">
+                                <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 w-36 text-center print:w-auto print:text-black print:font-bold print:py-2 print:px-2 print:text-left print:border print:border-slate-300">
                                     หมวดหมู่
                                 </th>
-                                <th className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 print:w-auto print:text-black print:font-bold print:py-2 print:px-2 print:border print:border-slate-300">
                                     รายละเอียด / ศูนย์บริการ-อู่
                                 </th>
-                                <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider text-slate-500 w-36">
+                                <th className="px-5 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 w-40 print:w-auto print:text-black print:font-bold print:py-2 print:px-2 print:border print:border-slate-300">
                                     ยอดเงิน (บาท)
                                 </th>
                             </tr>
@@ -629,43 +702,43 @@ export default function ExpenseReportPage() {
                                 return (
                                     <tr
                                         key={r.request_id || r.id}
-                                        className="transition-colors duration-150 hover:bg-violet-50/30"
+                                        className="transition-colors duration-150 hover:bg-slate-50/70 print:break-inside-avoid print:font-sans print:font-normal"
                                     >
                                         {/* 1. Date & REQ Code */}
-                                        <td className="px-4 py-3.5 align-top">
-                                            <span className="font-bold text-violet-700 text-xs bg-violet-50 px-2 py-0.5 rounded-md inline-block mb-1 border border-violet-100">
+                                        <td className="px-5 py-4 align-top print:py-2 print:px-2 print:border print:border-slate-300">
+                                            <div className="font-semibold text-blue-600 text-sm print:text-slate-800 print:font-normal print:text-xs">
                                                 REQ-{String(r.request_id).padStart(4, '0')}
-                                            </span>
-                                            <div className="text-xs text-slate-500">{dateStr}</div>
+                                            </div>
+                                            <div className="text-xs text-slate-400 mt-1 print:text-slate-600">{dateStr}</div>
                                         </td>
 
                                         {/* 2. Vehicle & Driver */}
-                                        <td className="px-4 py-3.5 align-top">
-                                            <div className="font-bold text-slate-800 text-sm">{r.vehicle?.license_plate || '-'}</div>
-                                            <div className="text-xs text-slate-400 font-medium">{r.vehicle?.brand} {r.vehicle?.model}</div>
-                                            <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                                                <span className="text-slate-400">ผู้ขับ:</span> {driverName}
+                                        <td className="px-5 py-4 align-top print:py-2 print:px-2 print:border print:border-slate-300">
+                                            <div className="font-bold text-slate-800 text-sm print:font-normal print:text-xs">{r.vehicle?.license_plate || '-'}</div>
+                                            <div className="text-xs text-slate-400 font-medium mt-0.5 print:text-slate-600 print:font-normal">{r.vehicle?.brand} {r.vehicle?.model}</div>
+                                            <div className="text-xs text-slate-500 mt-1 flex items-center gap-1 print:text-slate-600 print:font-normal">
+                                                <span className="text-slate-400 print:hidden">ผู้ขับ:</span> {driverName}
                                             </div>
                                         </td>
 
                                         {/* 3. Category */}
-                                        <td className="px-4 py-3.5 align-top text-center">
+                                        <td className="px-5 py-4 align-top text-center print:py-2 print:px-2 print:text-left print:border print:border-slate-300">
                                             {getCategoryBadge(r.repair_type)}
                                         </td>
 
                                         {/* 4. Description & Garage */}
-                                        <td className="px-4 py-3.5 align-top">
-                                            <p className="text-xs text-slate-700 leading-relaxed font-medium line-clamp-2" title={desc}>
+                                        <td className="px-5 py-4 align-top print:py-2 print:px-2 print:border print:border-slate-300">
+                                            <p className="text-sm text-slate-700 leading-relaxed font-medium line-clamp-2 print:text-slate-800 print:font-normal print:line-clamp-none print:text-xs" title={desc}>
                                                 {desc}
                                             </p>
-                                            <div className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
-                                                <span className="font-semibold text-slate-500">อู่/ศูนย์:</span> {garageName}
+                                            <div className="text-xs text-slate-400 mt-1.5 flex items-center gap-1 print:text-slate-600 print:font-normal">
+                                                <span className="font-medium text-slate-500 print:hidden">อู่/ศูนย์:</span> {garageName}
                                             </div>
                                         </td>
 
                                         {/* 5. Cost */}
-                                        <td className="px-4 py-3.5 align-top text-right">
-                                            <div className="text-base font-extrabold text-slate-800">
+                                        <td className="px-5 py-4 align-top text-right print:py-2 print:px-2 print:border print:border-slate-300">
+                                            <div className="text-base font-extrabold text-slate-800 print:text-slate-900 print:font-semibold print:text-xs">
                                                 ฿{(Number(r.total_cost) || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                                             </div>
                                         </td>
@@ -675,11 +748,11 @@ export default function ExpenseReportPage() {
                         </tbody>
                         {!loading && data.data && data.data.length > 0 && (
                             <tfoot>
-                                <tr className="bg-violet-50/60 border-t-2 border-violet-200">
-                                    <td colSpan={4} className="px-4 py-4 text-right font-extrabold text-slate-700">
+                                <tr className="bg-slate-50/70 border-t-2 border-slate-200 print:bg-slate-50 print:border-slate-400 print:border-t-2">
+                                    <td colSpan={4} className="px-5 py-4 text-right font-bold text-slate-700 print:text-black print:py-2 print:px-2 print:text-xs print:border print:border-slate-300 print:font-sans">
                                         ยอดรวมทั้งหมดในหน้านี้ / ตามตัวกรอง:
                                     </td>
-                                    <td className="px-4 py-4 text-right font-black text-rose-600 text-lg">
+                                    <td className="px-5 py-4 text-right font-black text-rose-600 text-lg print:text-black print:font-bold print:py-2 print:px-2 print:text-xs print:border print:border-slate-300 print:font-sans">
                                         ฿{(data.totalAmount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                                     </td>
                                 </tr>
@@ -691,7 +764,7 @@ export default function ExpenseReportPage() {
                 {/* ══════════════════════════════════════════
                     PAGINATION FOOTER
                 ══════════════════════════════════════════ */}
-                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between flex-wrap gap-3 bg-slate-50/50">
+                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between flex-wrap gap-3 bg-slate-50/50 print:hidden">
                     <p className="text-xs text-slate-500">
                         แสดง <span className="font-bold text-slate-700">{data.data?.length ? (page - 1) * 10 + 1 : 0}</span> ถึง <span className="font-bold text-slate-700">{Math.min(page * 10, data.total || 0)}</span> จากทั้งหมด <span className="font-bold text-slate-700">{data.total || 0}</span> รายการ
                     </p>

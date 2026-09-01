@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
-
 * {
   box-sizing: border-box;
 }
 
 body {
-  font-family: 'Prompt', sans-serif;
+  font-family: "Prompt", sans-serif;
   margin: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Scrollbar styling */
@@ -42,7 +42,7 @@ body {
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* Hide scrollbar for mobile/responsive views */
   ::-webkit-scrollbar {
     display: none;
@@ -53,14 +53,12 @@ body {
   }
 }
 
-
-
 /* Hide number input spin buttons */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+  -webkit-appearance: none;
+  margin: 0;
 }
 input[type="number"] {
-    -moz-appearance: textfield; /* Firefox */
+  -moz-appearance: textfield; /* Firefox */
 }

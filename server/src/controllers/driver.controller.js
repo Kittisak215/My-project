@@ -32,15 +32,54 @@ exports.getById = async (req, res) => {
 
 exports.create = async (req, res) => {
     try {
-        const driver = await prisma.driver.create({ data: req.body, include: { vehicles: true } });
-        res.status(201).json(driver);
+        const { full_name, phone, is_active, username, password, email } = req.body;
+
+        // สร้างข้อมูลคนขับก่อน
+        const driver = await prisma.driver.create({
+            data: { full_name, phone, is_active: is_active !== undefined ? is_active : true },
+        });
+
+        // สร้างบัญชีล็อกอินควบคู่ไปด้วย
+        const finalUsername = username || phone; // ถ้าไม่ได้กรอก username ให้ใช้เบอร์โทรแทน
+        const finalPassword = password || phone; // ถ้าไม่ได้กรอก password ให้ใช้เบอร์โทรเป็นรหัสผ่านตั้งต้น
+
+        const bcrypt = require('bcryptjs');
+        const salt = await bcrypt.genSalt(10);
+        const password_hash = await bcrypt.hash(finalPassword, salt);
+
+        // เช็กว่า username ซ้ำไหม
+        const exists = await prisma.user.findUnique({ where: { username: finalUsername } });
+        if (exists) {
+            // ถ้าซ้ำ ลบ driver ที่สร้างไปแล้ว แล้วส่ง error กลับ
+            await prisma.driver.delete({ where: { driver_id: driver.driver_id } });
+            return res.status(400).json({ message: `ชื่อผู้ใช้ "${finalUsername}" ถูกใช้งานแล้ว กรุณาระบุชื่อผู้ใช้อื่น` });
+        }
+
+        await prisma.user.create({
+            data: {
+                username: finalUsername,
+                password_hash,
+                full_name,
+                role: 'DRIVER',
+                driver_id: driver.driver_id,
+                is_active: is_active !== undefined ? is_active : true,
+                ...(email ? { email } : {}),
+            },
+        });
+
+        const driverWithUser = await prisma.driver.findUnique({
+            where: { driver_id: driver.driver_id },
+            include: { vehicles: true, userAccount: { omit: { password_hash: true } } },
+        });
+
+        res.status(201).json({ ...driverWithUser, defaultPassword: finalPassword });
     } catch (err) { res.status(400).json({ message: err.message }); }
 };
 
 exports.update = async (req, res) => {
     try {
         const driverId = parseInt(req.params.id);
-        const { full_name, phone, is_active } = req.body;
+        const { full_name, phone, is_active, email } = req.body;
 
         const operations = [
             prisma.driver.update({
@@ -66,6 +105,10 @@ exports.update = async (req, res) => {
             );
         }
 
+        if (email !== undefined) {
+            operations.push(prisma.user.updateMany({ where: { driver_id: driverId }, data: { email } }));
+        }
+
         const results = await prisma.$transaction(operations);
         res.json(results[0]);
     } catch (err) { res.status(400).json({ message: err.message }); }
@@ -81,4 +124,27 @@ exports.remove = async (req, res) => {
         ]);
         res.json({ message: 'Driver deactivated successfully' });
     } catch (err) { res.status(400).json({ message: err.message }); }
+};
+
+exports.hardDelete = async (req, res) => {
+    try {
+        const driverId = parseInt(req.params.id);
+        
+        // Check if there are related records that shouldn't be deleted
+        const driver = await prisma.driver.findUnique({
+            where: { driver_id: driverId },
+            include: { vehicles: true }
+        });
+        
+        if (!driver) return res.status(404).json({ message: 'ไม่พบข้อมูลคนขับ' });
+        
+        // Hard delete user first due to foreign key
+        await prisma.user.deleteMany({ where: { driver_id: driverId } });
+        // Hard delete driver
+        await prisma.driver.delete({ where: { driver_id: driverId } });
+        
+        res.json({ message: 'ลบข้อมูลคนขับถาวรสำเร็จ' });
+    } catch (err) { 
+        res.status(400).json({ message: 'ไม่สามารถลบถาวรได้ อาจมีประวัติผูกอยู่กับระบบ' }); 
+    }
 };

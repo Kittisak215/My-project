@@ -13,6 +13,7 @@ exports.adminDashboard = async (req, res) => {
                 orderBy: { alert_id: 'desc' }, take: 10,
             }),
             prisma.repairRequest.findMany({
+                where: { status: { in: ['PENDING', 'AWAITING_APPROVAL'] } },
                 orderBy: { created_at: 'desc' }, take: 8,
                 include: { vehicle: true, driver: true, garage: true },
             }),
@@ -28,7 +29,7 @@ exports.adminDashboard = async (req, res) => {
         const repairStats = pendingRepairs.reduce((acc, curr) => ({ ...acc, [curr.status]: curr._count.status }), {});
         const alertStats = overdueAlerts.reduce((acc, curr) => ({ ...acc, [curr.alert_type]: curr._count.alert_type }), {});
         const totalPendingRepairs = (repairStats.PENDING || 0) + (repairStats.IN_PROGRESS || 0) + (repairStats.AWAITING_APPROVAL || 0);
-        const totalAlerts = (alertStats.MILEAGE || 0) + (alertStats.TIME || 0);
+        const totalAlerts = Object.values(alertStats).reduce((sum, count) => sum + count, 0);
 
         res.json({
             stats: { 

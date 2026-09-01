@@ -123,7 +123,7 @@ exports.updateStatus = async (req, res) => {
         const {
             status, garage_id, total_cost, estimated_cost,
             note, repair_detail, repair_start_date, repair_end_date,
-            estimated_end_date, oil_grade
+            estimated_end_date, oil_grade, is_tire_changed
         } = req.body;
 
         const repair = await prisma.repairRequest.update({
@@ -145,7 +145,7 @@ exports.updateStatus = async (req, res) => {
 
         // Auto-update Maintenance Alert when repair is COMPLETED
         if (status === 'COMPLETED' && repair.mileage_at_repair && repair.vehicle_id) {
-            await autoUpdateMaintenanceAlerts(repair.vehicle_id, repair.mileage_at_repair, repair.repair_type, oil_grade || null);
+            await autoUpdateMaintenanceAlerts(repair.vehicle_id, repair.mileage_at_repair, repair.repair_type, oil_grade || null, is_tire_changed === 'true' || is_tire_changed === true);
         }
 
         try {
@@ -169,7 +169,7 @@ const OIL_GRADE_INTERVALS = {
  * นำ mileage_at_repair มาตั้งเป็น last_service_mileage และคำนวณ next_service_mileage ใหม่
  * หากมี oil_grade ให้ใช้ระยะทางตามเกรดแทนค่า default ของประเภทรถ
  */
-async function autoUpdateMaintenanceAlerts(vehicleId, mileageAtRepair, repairType, oilGrade = null) {
+async function autoUpdateMaintenanceAlerts(vehicleId, mileageAtRepair, repairType, oilGrade = null, isTireChanged = false) {
     try {
         const vehicle = await prisma.vehicle.findUnique({
             where: { vehicle_id: vehicleId },
@@ -188,33 +188,56 @@ async function autoUpdateMaintenanceAlerts(vehicleId, mileageAtRepair, repairTyp
             ? OIL_GRADE_INTERVALS[oilGrade]
             : defaultOilInterval;
 
+        // อัปเดตรอบระยะของรถ (Vehicle) ถ้ามีการระบุน้ำมันเครื่องเกรดใหม่
+        if (oilGrade && OIL_GRADE_INTERVALS[oilGrade] && vehicle.oil_change_interval_km !== OIL_GRADE_INTERVALS[oilGrade]) {
+            await prisma.vehicle.update({
+                where: { vehicle_id: vehicleId },
+                data: { oil_change_interval_km: OIL_GRADE_INTERVALS[oilGrade] }
+            });
+        }
+
+        let oilAlertResolved = false;
+
         for (const alert of vehicle.alerts) {
-            let shouldUpdate = false;
-
-            // ถ้าซ่อมทั่วไปอาจเปลี่ยนน้ำมัน ให้อัปเดต OIL_CHANGE alert
-            if (alert.alert_type === 'OIL_CHANGE' && mileageAtRepair >= alert.last_service_mileage) {
+            // ถ้ามีการเปลี่ยนน้ำมัน ให้อัปเดต OIL_CHANGE alert ให้สถานะเป็น "แก้ไขแล้ว" (Resolved)
+            if (alert.alert_type === 'OIL_CHANGE' && oilGrade) {
                 await prisma.maintenanceAlert.update({
                     where: { alert_id: alert.alert_id },
                     data: {
-                        last_service_mileage: mileageAtRepair,
-                        next_service_mileage: mileageAtRepair + oilInterval,
-                        is_resolved: false,
+                        is_resolved: true,
+                        // บันทึกไมล์ที่เพิ่งทำเสร็จไว้ใน next_service_mileage
+                        // เพื่อให้ mileage.controller ใช้เป็นฐานในการบวกรอบถัดไป
+                        next_service_mileage: mileageAtRepair, 
                     }
                 });
-                shouldUpdate = true;
+                oilAlertResolved = true;
             }
 
-            // ถ้าไมล์ผ่านกำหนดซ่อมแล้ว อัปเดตรอบถัดไป
-            if (!shouldUpdate && mileageAtRepair >= alert.next_service_mileage) {
-                const interval = alert.alert_type === 'TIRE_CHANGE' ? tireInterval : oilInterval;
+            // ถ้ามีการเปลี่ยนยาง ให้อัปเดต TIRE_CHANGE alert ให้สถานะเป็น "แก้ไขแล้ว" (Resolved)
+            if (alert.alert_type === 'TIRE_CHANGE' && isTireChanged) {
                 await prisma.maintenanceAlert.update({
                     where: { alert_id: alert.alert_id },
                     data: {
-                        last_service_mileage: mileageAtRepair,
-                        next_service_mileage: mileageAtRepair + interval,
+                        is_resolved: true,
+                        next_service_mileage: mileageAtRepair,
                     }
                 });
             }
+        }
+
+        // กรณีที่เปลี่ยนน้ำมันเครื่อง "ก่อน" ที่ระบบจะแจ้งเตือน (ไม่มี alert ค้างอยู่)
+        // ต้องสร้างประวัติการเปลี่ยนน้ำมันเครื่อง (resolved alert) ทิ้งไว้ 
+        // เพื่อให้ mileage.controller ใช้เป็นฐาน (lastServiceMileage) ในการคำนวณรอบถัดไป
+        if (oilGrade && !oilAlertResolved) {
+            await prisma.maintenanceAlert.create({
+                data: {
+                    vehicle_id: vehicleId,
+                    alert_type: 'OIL_CHANGE',
+                    is_resolved: true,
+                    last_service_mileage: mileageAtRepair,
+                    next_service_mileage: mileageAtRepair,
+                }
+            });
         }
     } catch (err) {
         console.error('autoUpdateMaintenanceAlerts error:', err.message);

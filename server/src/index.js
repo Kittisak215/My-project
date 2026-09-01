@@ -23,6 +23,10 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO.init(server);
 
+// Initialize cron jobs
+const { initCron } = require('./cron');
+initCron();
+
 const PORT = process.env.PORT || 5000;
 
 // Middleware
