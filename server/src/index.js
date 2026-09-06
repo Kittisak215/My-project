@@ -62,6 +62,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/vehicle-types', require('./routes/vehicleType.routes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

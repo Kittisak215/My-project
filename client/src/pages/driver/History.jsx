@@ -8,6 +8,9 @@ import {
   MapPin,
   DollarSign,
   Clock,
+  Upload,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
@@ -25,6 +28,23 @@ export default function DriverHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [viewReceipt, setViewReceipt] = useState(null);
+
+  const handleUploadReceipt = async (id, file) => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("receipt", file);
+    const loadingToast = toast.loading("กำลังอัปโหลดสลิป...");
+    try {
+      await api.post(`/repairs/${id}/receipt`, formData);
+      toast.dismiss(loadingToast);
+      toast.success("อัปโหลดสลิปสำเร็จ");
+      fetchRepairs(page);
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      toast.error(err.response?.data?.message || "อัปโหลดสลิปไม่สำเร็จ");
+    }
+  };
 
   const fetchRepairs = async (p = 1) => {
     setLoading(true);
@@ -318,9 +338,37 @@ export default function DriverHistoryPage() {
                             minimumFractionDigits: 2,
                           })}
                         </p>
+                        {(r.parts_cost || r.labor_cost) && (
+                          <div className="text-[11px] text-slate-500 mt-1 sm:text-right space-x-1.5">
+                            <span>อะไหล่: ฿{parseFloat(r.parts_cost || 0).toLocaleString()}</span>
+                            <span>•</span>
+                            <span>ค่าแรง: ฿{parseFloat(r.labor_cost || 0).toLocaleString()}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Receipt Section */}
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {r.receipt_image ? (
+                      <button onClick={() => setViewReceipt(r.receipt_image)} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 cursor-pointer">
+                        <ImageIcon size={14} /> ดูสลิปใบเสร็จ
+                      </button>
+                    ) : (
+                      <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                        <ImageIcon size={14} /> ยังไม่ได้แนบสลิป
+                      </span>
+                    )}
+                  </div>
+                  {r.status !== "COMPLETED" && r.status !== "REJECTED" && (
+                     <label className="cursor-pointer flex items-center gap-1.5 text-xs font-semibold bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors shadow-sm">
+                       <Upload size={14} /> {r.receipt_image ? "อัปโหลดใหม่" : "อัปโหลดสลิป"}
+                       <input type="file" className="hidden" accept="image/*" onChange={(e) => { if(e.target.files[0]) handleUploadReceipt(r.request_id || r.id, e.target.files[0]); e.target.value = null; }} />
+                     </label>
+                  )}
                 </div>
               </div>
             );
@@ -347,6 +395,21 @@ export default function DriverHistoryPage() {
           >
             ถัดไป <ChevronRight size={16} />
           </button>
+        </div>
+      )}
+
+      {/* Receipt Image Modal */}
+      {viewReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200" onClick={() => setViewReceipt(null)}>
+          <div className="relative max-w-3xl w-full flex flex-col items-center animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setViewReceipt(null)}
+              className="absolute -top-12 right-0 p-2 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full transition-colors cursor-pointer"
+            >
+              <X size={24} />
+            </button>
+            <img src={viewReceipt} alt="Receipt" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" />
+          </div>
         </div>
       )}
     </div>

@@ -30,8 +30,12 @@ exports.addLog = async (req, res) => {
         const mileage_start = lastLog ? lastLog.mileage_end : 0;
         const mileage_end_int = parseInt(mileage_end);
 
+        if (isNaN(mileage_end_int) || mileage_end_int < 0) {
+            return res.status(400).json({ message: 'เลขไมล์ต้องเป็นตัวเลขที่ไม่ติดลบ' });
+        }
+
         if (mileage_end_int < mileage_start) {
-            return res.status(400).json({ message: `เลขไมล์ต้องมากกว่า ${mileage_start} กม.` });
+            return res.status(400).json({ message: `เลขไมล์ต้องมากกว่าหรือเท่ากับ ${mileage_start} กม.` });
         }
 
         const driverId = req.user.role === 'DRIVER' ? req.user.driver_id : parseInt(recorded_by);
@@ -53,13 +57,16 @@ exports.addLog = async (req, res) => {
 
         // ── ตรวจสอบและสร้าง/อัปเดต MaintenanceAlert อัตโนมัติ ──────────
         let triggeredAlerts = [];
+        let maintenanceWarnings = [];
         try {
-            triggeredAlerts = await checkAndCreateMaintenanceAlerts(vid, mileage_end_int);
+            const alertRes = await checkAndCreateMaintenanceAlerts(vid, mileage_end_int);
+            triggeredAlerts = alertRes.createdAlertTypes || [];
+            maintenanceWarnings = alertRes.warnings || [];
         } catch (alertErr) {
             console.error('Auto maintenance alert error:', alertErr.message);
         }
 
-        res.status(201).json({ ...log, distance_km: mileage_end_int - mileage_start, triggeredAlerts });
+        res.status(201).json({ ...log, distance_km: mileage_end_int - mileage_start, triggeredAlerts, maintenanceWarnings });
     } catch (err) { res.status(400).json({ message: err.message }); }
 };
 
@@ -73,10 +80,24 @@ async function checkAndCreateMaintenanceAlerts(vehicleId, currentMileage) {
         where: { vehicle_id: vehicleId },
         include: { vehicleType: true },
     });
-    if (!vehicle) return [];
+    if (!vehicle) return { createdAlertTypes: [], warnings: [] };
 
-    const oilInterval   = vehicle.oil_change_interval_km  ?? vehicle.vehicleType?.oil_change_interval_km  ?? 10000;
-    const tireInterval  = vehicle.tire_change_interval_km ?? vehicle.vehicleType?.tire_change_interval_km ?? 50000;
+    const vt = vehicle.vehicleType;
+    const tireInterval = vt?.tire_change_interval_km ?? 50000;
+
+    // ดึงเกรดน้ำมันล่าสุดที่ใช้กับรถคันนี้ เพื่อหา interval ที่ถูกต้อง
+    const lastOilRepair = await prisma.repairRequest.findFirst({
+        where: { vehicle_id: vehicleId, oil_grade: { not: null } },
+        orderBy: { created_at: 'desc' },
+        select: { oil_grade: true }
+    });
+    const lastOilGrade = lastOilRepair?.oil_grade || 'FULLY_SYNTHETIC';
+    const oilIntervalMap = {
+        MINERAL:         vt?.oil_interval_mineral_km         ?? 5000,
+        SEMI_SYNTHETIC:  vt?.oil_interval_semi_synthetic_km  ?? 7000,
+        FULLY_SYNTHETIC: vt?.oil_interval_fully_synthetic_km ?? 10000,
+    };
+    const oilInterval = oilIntervalMap[lastOilGrade] ?? oilIntervalMap.FULLY_SYNTHETIC;
 
     const alertTypes = [
         { type: 'OIL_CHANGE',  interval: oilInterval },
@@ -84,6 +105,7 @@ async function checkAndCreateMaintenanceAlerts(vehicleId, currentMileage) {
     ];
 
     let createdAlertTypes = [];
+    let warnings = [];
 
     for (const { type, interval } of alertTypes) {
         // ดึง alert ที่ยังไม่ถูก resolve ของรถนี้
@@ -91,35 +113,47 @@ async function checkAndCreateMaintenanceAlerts(vehicleId, currentMileage) {
             where: { vehicle_id: vehicleId, alert_type: type, is_resolved: false },
         });
 
+        let nextServiceMileage = 0;
+
         if (existingAlert) {
-            // ถึงหรือเกินกำหนดบริการ → อัปเดต (ไม่สร้างซ้ำ)
-            // แค่คงไว้ให้แจ้งเตือน ไม่ต้องทำอะไรเพิ่ม
-            continue;
+            nextServiceMileage = existingAlert.next_service_mileage;
+        } else {
+            // ไม่มี alert ที่ pending → คำนวณว่าถึงรอบหรือยัง
+            // หา last_service_mileage จาก resolved alert ล่าสุด (ถ้าไม่มีใช้ 0)
+            const lastResolved = await prisma.maintenanceAlert.findFirst({
+                where: { vehicle_id: vehicleId, alert_type: type, is_resolved: true },
+                orderBy: [{ next_service_mileage: 'desc' }, { alert_id: 'desc' }],
+            });
+
+            const lastServiceMileage = lastResolved ? lastResolved.next_service_mileage : 0;
+            nextServiceMileage = lastServiceMileage + interval;
+
+            // แจ้งเตือนล่วงหน้า 10% ก่อนถึงรอบ (เช่น รอบ 10,000 → เริ่มแจ้งที่ 9,000)
+            const warningThreshold = nextServiceMileage - Math.round(interval * 0.1);
+
+            if (currentMileage >= warningThreshold) {
+                await prisma.maintenanceAlert.create({
+                    data: {
+                        vehicle_id: vehicleId,
+                        alert_type: type,
+                        last_service_mileage: lastServiceMileage,
+                        next_service_mileage: nextServiceMileage,
+                    },
+                });
+                createdAlertTypes.push(type);
+            }
         }
 
-        // ไม่มี alert ที่ pending → คำนวณว่าถึงรอบหรือยัง
-        // หา last_service_mileage จาก resolved alert ล่าสุด (ถ้าไม่มีใช้ 0)
-        const lastResolved = await prisma.maintenanceAlert.findFirst({
-            where: { vehicle_id: vehicleId, alert_type: type, is_resolved: true },
-            orderBy: { next_service_mileage: 'desc' },
-        });
-
-        const lastServiceMileage = lastResolved ? lastResolved.next_service_mileage : 0;
-        const nextServiceMileage = lastServiceMileage + interval;
-
-        // แจ้งเตือนล่วงหน้า 10% ก่อนถึงรอบ (เช่น รอบ 10,000 → เริ่มแจ้งที่ 9,000)
-        const warningThreshold = nextServiceMileage - Math.round(interval * 0.1);
-
-        if (currentMileage >= warningThreshold) {
-            await prisma.maintenanceAlert.create({
-                data: {
-                    vehicle_id: vehicleId,
-                    alert_type: type,
-                    last_service_mileage: lastServiceMileage,
-                    next_service_mileage: nextServiceMileage,
-                },
+        // เช็คเกณฑ์เตือนว่าเหลือน้อยกว่าหรือเท่ากับ 1,000 กม. หรือไม่ (หรือเลยกำหนดแล้ว)
+        const remainingMileage = nextServiceMileage - currentMileage;
+        if (remainingMileage <= 1000) {
+            warnings.push({
+                type,
+                next_service_mileage: nextServiceMileage,
+                remaining_mileage: remainingMileage,
+                is_overdue: remainingMileage <= 0,
+                overdue_by: remainingMileage <= 0 ? Math.abs(remainingMileage) : 0
             });
-            createdAlertTypes.push(type);
         }
     }
 
@@ -131,5 +165,5 @@ async function checkAndCreateMaintenanceAlerts(vehicleId, currentMileage) {
         } catch (e) { console.error('Socket emit error', e); }
     }
     
-    return createdAlertTypes;
+    return { createdAlertTypes, warnings };
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, X, Copy, CheckCheck, Trash2 } from "lucide-react";
+import { Search, X, Copy, CheckCheck, Trash2, User, Phone, Mail } from "lucide-react";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
 import { useForm } from "react-hook-form";
@@ -130,7 +130,7 @@ export default function DriversPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [credential, setCredential] = useState(null); // สำหรับแสดงกล่องรหัสผ่าน
-  const { register, handleSubmit, reset, watch } = useForm();
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
   const limit = 10;
   const watchPhone = watch("phone", "");
 
@@ -188,7 +188,13 @@ export default function DriversPage() {
 
   const onSubmit = async (data) => {
     try {
-      const payload = { ...data, is_active: data.is_active === "true" };
+      const payload = {
+        ...data,
+        full_name: data.full_name?.trim(),
+        phone: data.phone?.trim(),
+        email: data.email?.trim() || null,
+        is_active: data.is_active === "true",
+      };
       if (editing) {
         await api.put(`/drivers/${editing.driver_id}`, payload);
         toast.success("แก้ไขสำเร็จ");
@@ -293,9 +299,22 @@ export default function DriversPage() {
                   <p className="text-xs text-slate-400 mt-1">
                     ผูกบัญชี: {d.userAccount?.username || "-"}
                   </p>
-                  <span className="bg-blue-100 text-blue-700 py-0.5 px-2 rounded-full text-xs font-medium mt-2 inline-block">
-                    {d.vehicles?.length || 0} คัน
-                  </span>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {d.vehicles && d.vehicles.length > 0 ? (
+                      d.vehicles.map((v, i) => (
+                        <span
+                          key={v.vehicle_id || i}
+                          className="bg-blue-50 text-blue-700 border border-blue-200 py-0.5 px-2 rounded-md text-[10px] font-medium"
+                        >
+                          {v.license_plate}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-slate-400 text-[10px] bg-slate-50 py-0.5 px-2 rounded-md border border-slate-200">
+                        ไม่มีรถในความดูแล
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 ml-2 shrink-0">
                   <button
@@ -390,10 +409,21 @@ export default function DriversPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-slate-600">{d.phone}</td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="bg-blue-100 text-blue-700 py-1 px-3 rounded-full text-xs font-medium">
-                        {d.vehicles?.length || 0} คัน
-                      </span>
+                    <td className="px-6 py-4 text-center max-w-50">
+                      {d.vehicles && d.vehicles.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 justify-center">
+                          {d.vehicles.map((v, i) => (
+                            <span
+                              key={v.vehicle_id || i}
+                              className="bg-blue-50 text-blue-700 border border-blue-200 py-1 px-2 rounded-md text-xs font-medium"
+                            >
+                              {v.license_plate}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-xs">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <StatusBadge isActive={d.is_active} />
@@ -467,37 +497,80 @@ export default function DriversPage() {
           onClose={() => setShowModal(false)}
         >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">
-                  ชื่อ - นามสกุล *
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <User size={15} className="text-slate-400" />
+                  <span>ชื่อ - นามสกุล</span>
+                  <span className="text-rose-500">*</span>
                 </label>
                 <input
-                  {...register("full_name", { required: true })}
-                  className="block w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA] transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white placeholder-slate-300"
+                  {...register("full_name", {
+                    required: "กรุณาระบุชื่อ - นามสกุล",
+                    maxLength: { value: 100, message: "ชื่อ - นามสกุลต้องไม่เกิน 100 ตัวอักษร" },
+                    validate: (v) => (v && v.trim().length > 0) || "ชื่อ - นามสกุลต้องไม่เป็นช่องว่าง",
+                  })}
+                  maxLength={100}
+                  className={clsx(
+                    "block w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white placeholder-slate-300",
+                    errors.full_name ? "border-red-400 focus:ring-red-500/10 focus:border-red-500" : "border-slate-200 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA]"
+                  )}
                   placeholder="เช่น สมชาย ใจดี"
                 />
+                {errors.full_name && <p className="text-xs text-red-500 mt-1">{errors.full_name.message}</p>}
               </div>
+
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">
-                  เบอร์โทรศัพท์ *
+                <label className="text-sm font-medium text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <Phone size={15} className="text-slate-400" />
+                  <span>เบอร์โทรศัพท์</span>
+                  <span className="text-rose-500">*</span>
                 </label>
                 <input
-                  {...register("phone", { required: true })}
-                  className="block w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA] transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white placeholder-slate-300"
-                  placeholder="08X-XXX-XXXX"
+                  {...register("phone", {
+                    required: "กรุณาระบุเบอร์โทรศัพท์",
+                    pattern: {
+                      value: /^0[689]\d{8}$/,
+                      message: "เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก (ขึ้นต้นด้วย 06, 08 หรือ 09)",
+                    },
+                  })}
+                  type="tel"
+                  maxLength={10}
+                  onInput={(e) => { e.target.value = e.target.value.replace(/\D/g, ""); }}
+                  className={clsx(
+                    "block w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white placeholder-slate-300",
+                    errors.phone ? "border-red-400 focus:ring-red-500/10 focus:border-red-500" : "border-slate-200 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA]"
+                  )}
+                  placeholder="08XXXXXXXX"
                 />
+                {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
               </div>
+
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block flex items-center gap-1.5">
-                  อีเมล <span className="text-slate-400 font-normal text-xs">(ไม่บังคับ)</span>
+                <label className="text-sm font-medium text-slate-700 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Mail size={15} className="text-slate-400" />
+                    <span>อีเมล</span>
+                  </span>
+                  <span className="text-slate-400 font-normal text-xs bg-slate-100 px-2 py-0.5 rounded-md">
+                    ไม่บังคับ
+                  </span>
                 </label>
                 <input
-                  {...register("email")}
+                  {...register("email", {
+                    pattern: {
+                      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                      message: "รูปแบบอีเมลไม่ถูกต้อง (เช่น example@mail.com)",
+                    },
+                  })}
                   type="email"
-                  className="block w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA] transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white placeholder-slate-300"
+                  className={clsx(
+                    "block w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white placeholder-slate-300",
+                    errors.email ? "border-red-400 focus:ring-red-500/10 focus:border-red-500" : "border-slate-200 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA]"
+                  )}
                   placeholder="example@mail.com"
                 />
+                {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
               </div>
             </div>
 

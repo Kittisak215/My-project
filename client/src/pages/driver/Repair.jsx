@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
+import clsx from "clsx";
 import {
   Wrench,
   Car,
@@ -69,10 +70,16 @@ export default function DriverRepairPage() {
 
   const onSubmit = async (data) => {
     if (!selectedVehicle) return toast.error("ไม่มียานพาหนะที่ได้รับมอบหมาย");
+    const currentMileage =
+      selectedVehicle.current_mileage || selectedVehicle.currentMileage || 0;
+    if (data.mileageAtRepair && parseInt(data.mileageAtRepair) < currentMileage) {
+      return toast.error(`เลขไมล์ขณะเข้าซ่อมต้องไม่น้อยกว่าเลขไมล์ปัจจุบัน (${currentMileage.toLocaleString()} กม.)`);
+    }
+    if (data.repairStartDate && data.estimatedEndDate && new Date(data.estimatedEndDate) < new Date(data.repairStartDate)) {
+      return toast.error("วันที่คาดว่าจะเสร็จต้องไม่เกิดขึ้นก่อนวันที่เข้าซ่อม");
+    }
     setSubmitting(true);
     try {
-      const currentMileage =
-        selectedVehicle.current_mileage || selectedVehicle.currentMileage || 0;
       const repairData = {
         vehicle_id: selectedVehicle.vehicle_id || selectedVehicle.id,
         repair_type: data.repairType,
@@ -131,6 +138,7 @@ export default function DriverRepairPage() {
   };
 
   const repairType = watch("repairType");
+  const watchRepairStartDate = watch("repairStartDate");
   const isEmergency = repairType === "EMERGENCY";
   const currentMileage = selectedVehicle
     ? selectedVehicle.current_mileage || selectedVehicle.currentMileage || 0
@@ -328,13 +336,31 @@ export default function DriverRepairPage() {
                 </label>
                 <input
                   {...register("mileageAtRepair", {
-                    min: { value: 0, message: "เลขไมล์ต้องไม่ติดลบ" },
+                    validate: (v) => {
+                      if (v === "" || v === undefined || v === null) return true;
+                      const num = Number(v);
+                      if (isNaN(num) || num < 0) return "เลขไมล์ต้องไม่ติดลบ";
+                      if (currentMileage > 0 && num < currentMileage) {
+                        return `เลขไมล์ต้องไม่น้อยกว่าเลขไมล์ปัจจุบัน (${currentMileage.toLocaleString()} กม.)`;
+                      }
+                      return true;
+                    },
                   })}
                   type="number"
+                  min={currentMileage || 0}
                   defaultValue={currentMileage}
                   placeholder={`ไมล์ปัจจุบัน ${currentMileage.toLocaleString()} กม.`}
-                  className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA] bg-white"
+                  onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
+                  className={clsx(
+                    "w-full border rounded-xl px-4 py-3 text-sm focus:outline-none bg-white",
+                    errors.mileageAtRepair ? "border-red-500 focus:ring-2 focus:ring-red-200" : "border-slate-300 focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA]"
+                  )}
                 />
+                {errors.mileageAtRepair && (
+                  <p className="text-red-500 text-xs mt-1.5 font-medium">
+                    {errors.mileageAtRepair.message}
+                  </p>
+                )}
                 <p className="text-xs text-slate-400 mt-1">
                   ระบุเลขไมล์จากหน้าปัดรถ ณ วันที่นำเข้าซ่อม
                 </p>
@@ -383,12 +409,25 @@ export default function DriverRepairPage() {
                       ราคาประเมิน (บาท)
                     </label>
                     <input
-                      {...register("estimatedCost", { valueAsNumber: true })}
+                      {...register("estimatedCost", {
+                        valueAsNumber: true,
+                        min: { value: 0, message: "ราคาประเมินต้องไม่ติดลบ" },
+                      })}
                       type="number"
+                      min={0}
                       step="0.01"
                       placeholder="0.00"
-                      className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA]"
+                      onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
+                      className={clsx(
+                        "w-full border rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none",
+                        errors.estimatedCost ? "border-red-500 focus:ring-2 focus:ring-red-200" : "border-slate-300 focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA]"
+                      )}
                     />
+                    {errors.estimatedCost && (
+                      <p className="text-red-500 text-xs mt-1 font-medium">
+                        {errors.estimatedCost.message}
+                      </p>
+                    )}
                   </div>
 
                   {/* Repair Start Date */}
@@ -426,6 +465,7 @@ export default function DriverRepairPage() {
                         <DatePicker
                           selected={field.value}
                           onChange={(date) => field.onChange(date)}
+                          minDate={watchRepairStartDate || undefined}
                           dateFormat="dd/MM/yyyy"
                           placeholderText="เลือกวันที่..."
                           className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA]"

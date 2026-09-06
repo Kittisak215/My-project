@@ -51,7 +51,7 @@ function getCategoryBadge(type) {
 export default function ExpenseReportPage() {
     injectStyle('expense-report-anim', ANIM_STYLE);
 
-    const [data, setData] = useState({ data: [], totalAmount: 0, avgAmount: 0, maxAmount: 0, total: 0, totalPages: 1 });
+    const [data, setData] = useState({ data: [], totalAmount: 0, totalPartsCost: 0, totalLaborCost: 0, avgAmount: 0, maxAmount: 0, total: 0, totalPages: 1 });
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
     const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -169,7 +169,7 @@ export default function ExpenseReportPage() {
             }
 
             // Generate CSV content with UTF-8 BOM
-            const headers = ['วันที่', 'เลขที่คำร้อง', 'ทะเบียนรถ', 'ยี่ห้อ/รุ่น', 'ผู้รับผิดชอบ', 'หมวดหมู่', 'รายละเอียด', 'ศูนย์บริการ/อู่', 'ยอดเงิน (บาท)'];
+            const headers = ['วันที่', 'เลขที่คำร้อง', 'ทะเบียนรถ', 'ยี่ห้อ/รุ่น', 'ผู้รับผิดชอบ', 'หมวดหมู่', 'รายละเอียด', 'ศูนย์บริการ/อู่', 'ค่าอะไหล่ (บาท)', 'ค่าแรงช่าง (บาท)', 'ยอดเงินรวม (บาท)'];
             const csvRows = [headers.join(',')];
 
             rows.forEach(r => {
@@ -189,9 +189,11 @@ export default function ExpenseReportPage() {
                 const category = `"${categoryMap[r.repair_type]?.label || r.repair_type || 'ทั่วไป'}"`;
                 const desc = `"${(r.issue_description || r.repair_detail || r.description || '-').replace(/"/g, '""')}"`;
                 const garage = `"${(r.garage?.garage_name || '-').replace(/"/g, '""')}"`;
+                const partsCost = Number(r.parts_cost) || 0;
+                const laborCost = Number(r.labor_cost) || 0;
                 const cost = Number(r.total_cost) || 0;
 
-                csvRows.push([dateStr, code, plate, brand, driver, category, desc, garage, cost].join(','));
+                csvRows.push([dateStr, code, plate, brand, driver, category, desc, garage, partsCost, laborCost, cost].join(','));
             });
 
             const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -478,7 +480,7 @@ export default function ExpenseReportPage() {
                             </h3>
                             <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                จากรายการที่อนุมัติแล้ว
+                                รวมค่าใช้จ่ายจริงทั้งหมด
                             </p>
                         </div>
                         <div className="p-2.5 rounded-xl bg-violet-50 text-violet-600 shrink-0">
@@ -493,16 +495,17 @@ export default function ExpenseReportPage() {
                 >
                     <div className="flex items-start justify-between">
                         <div>
-                            <p className="text-xs font-semibold text-slate-500 mb-1">จำนวนรายการซ่อม</p>
+                            <p className="text-xs font-semibold text-slate-500 mb-1">ค่าอะไหล่รวม</p>
                             <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
-                                {data.total || 0} <span className="text-sm font-normal text-slate-400">รายการ</span>
+                                ฿{(data.totalPartsCost || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </h3>
-                            <p className="text-xs text-slate-400 mt-1.5">
-                                เฉลี่ย ฿{(data.avgAmount || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })} / รายการ
+                            <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                ค่าชิ้นส่วนและวัสดุ
                             </p>
                         </div>
-                        <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
-                            <FileText size={20} />
+                        <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 shrink-0">
+                            <Wrench size={20} />
                         </div>
                     </div>
                 </div>
@@ -513,11 +516,14 @@ export default function ExpenseReportPage() {
                 >
                     <div className="flex items-start justify-between">
                         <div>
-                            <p className="text-xs font-semibold text-slate-500 mb-1">ค่าเฉลี่ยต่อรายการ</p>
+                            <p className="text-xs font-semibold text-slate-500 mb-1">ค่าแรงช่างรวม</p>
                             <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
-                                ฿{(data.avgAmount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ฿{(data.totalLaborCost || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </h3>
-                            <p className="text-xs text-slate-400 mt-1.5">มูลค่าเฉลี่ยต่อการซ่อม</p>
+                            <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                                ค่าบริการและแรงงาน
+                            </p>
                         </div>
                         <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 shrink-0">
                             <TrendingUp size={20} />
@@ -531,14 +537,16 @@ export default function ExpenseReportPage() {
                 >
                     <div className="flex items-start justify-between">
                         <div>
-                            <p className="text-xs font-semibold text-slate-500 mb-1">ค่าใช้จ่ายสูงสุดต่อครั้ง</p>
+                            <p className="text-xs font-semibold text-slate-500 mb-1">จำนวนรายการซ่อม</p>
                             <h3 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
-                                ฿{(data.maxAmount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {data.total || 0} <span className="text-sm font-normal text-slate-400">รายการ</span>
                             </h3>
-                            <p className="text-xs text-slate-400 mt-1.5">ยอดต่อบิลสูงสุด</p>
+                            <p className="text-xs text-slate-400 mt-1.5">
+                                เฉลี่ย ฿{(data.avgAmount || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })} / รายการ
+                            </p>
                         </div>
                         <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
-                            <CheckCircle2 size={20} />
+                            <FileText size={20} />
                         </div>
                     </div>
                 </div>
@@ -630,9 +638,16 @@ export default function ExpenseReportPage() {
                                         <p className="font-bold text-slate-800 text-sm">{r.vehicle?.license_plate}</p>
                                         <p className="text-xs text-slate-400">{r.vehicle?.brand} {r.vehicle?.model}</p>
                                     </div>
-                                    <p className="text-base font-extrabold text-slate-800">
-                                        ฿{(Number(r.total_cost) || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                                    </p>
+                                    <div className="text-right">
+                                        <p className="text-base font-extrabold text-slate-800">
+                                            ฿{(Number(r.total_cost) || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                                        </p>
+                                        {(r.parts_cost || r.labor_cost) && (
+                                            <p className="text-[10px] text-slate-400 mt-0.5">
+                                                (อะไหล่: ฿{Number(r.parts_cost || 0).toLocaleString()} | ค่าแรง: ฿{Number(r.labor_cost || 0).toLocaleString()})
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex items-center justify-between pt-0.5">
                                     {getCategoryBadge(r.repair_type)}
@@ -741,6 +756,11 @@ export default function ExpenseReportPage() {
                                             <div className="text-base font-extrabold text-slate-800 print:text-slate-900 print:font-semibold print:text-xs">
                                                 ฿{(Number(r.total_cost) || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                                             </div>
+                                            {(r.parts_cost || r.labor_cost) && (
+                                                <div className="text-[11px] text-slate-500 whitespace-nowrap mt-0.5 print:text-[10px]">
+                                                    (อะไหล่: ฿{Number(r.parts_cost || 0).toLocaleString()} | ค่าแรง: ฿{Number(r.labor_cost || 0).toLocaleString()})
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 );

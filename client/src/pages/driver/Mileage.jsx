@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Gauge, Car, Info, CheckCircle2, History } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Gauge, Car, Info, CheckCircle2, History, AlertTriangle, AlertCircle, Wrench, ArrowRight } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import api from '../../lib/axios';
@@ -9,34 +10,34 @@ import useAuthStore from '../../store/authStore';
 
 const todayDate = new Date();
 
+const typeLabelMap = {
+    'OIL_CHANGE': 'เปลี่ยนถ่ายน้ำมันเครื่อง',
+    'TIRE_CHANGE': 'เปลี่ยนยาง'
+};
+
 export default function MileagePage() {
     const { user } = useAuthStore();
+    const navigate = useNavigate();
     const [vehicles, setVehicles] = useState([]);
     const [logs, setLogs] = useState([]);
     const [selectedVehicle, setSelectedVehicle] = useState(null);
+    const [vehicleForecasts, setVehicleForecasts] = useState([]);
     const [submitting, setSubmitting] = useState(false);
+    const [postSubmitModal, setPostSubmitModal] = useState(null);
+
     const { register, handleSubmit, watch, reset, control, formState: { errors } } = useForm({
         defaultValues: { recordDate: todayDate }
     });
 
-    useEffect(() => {
-        const driverId = user?.driver_id || user?.driver?.driver_id;
-        api.get('/vehicles', { params: { limit: 100, is_active: "true" } }).then(res => {
-            const driverVehicles = res.data.data.filter(v => (v.driver_id || v.driverId) === driverId);
-            setVehicles(driverVehicles);
-            if (driverVehicles.length > 0) {
-                setSelectedVehicle(driverVehicles[0]);
-                fetchLogs(driverVehicles[0].vehicle_id || driverVehicles[0].id);
+    const fetchForecast = async (vid) => {
+        try {
+            const res = await api.get('/alerts/forecast', { params: { vehicle_id: vid } });
+            if (Array.isArray(res.data)) {
+                const target = res.data.find(item => item.vehicle?.vehicle_id === vid) || res.data[0];
+                setVehicleForecasts(target?.forecasts || []);
             }
-        });
-    }, [user?.driver_id, user?.driver?.driver_id]);
-
-    const handleVehicleChange = (vehicleId) => {
-        const v = vehicles.find(v => (v.vehicle_id || v.id) === parseInt(vehicleId));
-        if (v) {
-            setSelectedVehicle(v);
-            fetchLogs(v.vehicle_id || v.id);
-            reset();
+        } catch {
+            // silent fail
         }
     };
 
@@ -49,8 +50,64 @@ export default function MileagePage() {
         }
     };
 
+    useEffect(() => {
+        const driverId = user?.driver_id || user?.driver?.driver_id;
+        api.get('/vehicles', { params: { limit: 100, is_active: "true" } }).then(res => {
+            const driverVehicles = res.data.data.filter(v => (v.driver_id || v.driverId) === driverId);
+            setVehicles(driverVehicles);
+            if (driverVehicles.length > 0) {
+                const initialV = driverVehicles[0];
+                const vid = initialV.vehicle_id || initialV.id;
+                setSelectedVehicle(initialV);
+                fetchLogs(vid);
+                fetchForecast(vid);
+            }
+        });
+    }, [user?.driver_id, user?.driver?.driver_id]);
+
+    const handleVehicleChange = (vehicleId) => {
+        const v = vehicles.find(v => (v.vehicle_id || v.id) === parseInt(vehicleId));
+        if (v) {
+            const vid = v.vehicle_id || v.id;
+            setSelectedVehicle(v);
+            fetchLogs(vid);
+            fetchForecast(vid);
+            reset();
+        }
+    };
+
+    const currentMileage = logs.length > 0 
+        ? logs[0].mileage_end 
+        : (selectedVehicle ? (selectedVehicle.current_mileage || selectedVehicle.currentMileage || 0) : 0);
+
+    const watchedMileage = watch('mileage');
+    const enteredMileage = watchedMileage && !isNaN(parseInt(watchedMileage)) ? parseInt(watchedMileage) : null;
+    const isMileageValid = enteredMileage !== null && enteredMileage >= currentMileage;
+    const calculatedDistance = isMileageValid ? (enteredMileage - currentMileage) : 0;
+
+    // Calculate live maintenance alerts for entered mileage
+    const liveMaintenanceAlerts = (isMileageValid && vehicleForecasts.length > 0) 
+        ? vehicleForecasts.map(f => {
+            const remaining = f.next_service_mileage - enteredMileage;
+            return {
+                ...f,
+                remaining,
+                isOverdue: remaining <= 0,
+                isWarning: remaining > 0 && remaining <= 1000,
+            };
+        })
+        : [];
+
+    const hasOverdue = liveMaintenanceAlerts.some(a => a.isOverdue);
+    const hasWarning = liveMaintenanceAlerts.some(a => a.isWarning);
+    const criticalAlerts = liveMaintenanceAlerts.filter(a => a.isOverdue || a.isWarning);
+
     const onSubmit = async (data) => {
         if (!selectedVehicle) return;
+        if (calculatedDistance > 2500) {
+            const confirmed = window.confirm(`ระยะทางเพิ่มขึ้น ${calculatedDistance.toLocaleString()} กม. ซึ่งสูงกว่าปกติมาก คุณแน่ใจหรือไม่ว่ากรอกเลขไมล์ถูกต้อง?`);
+            if (!confirmed) return;
+        }
         setSubmitting(true);
         try {
             const d = data.recordDate instanceof Date ? data.recordDate : new Date(data.recordDate);
@@ -61,31 +118,49 @@ export default function MileagePage() {
                 record_date: localDate,
                 mileage_end: parseInt(data.mileage)
             });
-            
-            if (res.data.triggeredAlerts && res.data.triggeredAlerts.length > 0) {
-                const typeMap = {
-                    'OIL_CHANGE': 'เปลี่ยนถ่ายน้ำมันเครื่อง',
-                    'TIRE_CHANGE': 'เปลี่ยนยาง'
-                };
-                const types = res.data.triggeredAlerts.map(t => typeMap[t] || t).join(' และ ');
-                toast.error(`⚠️ ระบบตรวจพบว่ารถถึงกำหนดต้อง ${types} แล้ว! กรุณาแจ้งผู้ดูแลระบบเพื่อนำรถเข้าศูนย์`, { autoClose: false, position: "top-center" });
+
+            // ตรวจสอบว่ามี warning หลังเซฟหรือไม่ (ทั้งจาก backend และจาก live calculation)
+            const hasServerWarnings = res.data.maintenanceWarnings && res.data.maintenanceWarnings.length > 0;
+            const hasTriggered = res.data.triggeredAlerts && res.data.triggeredAlerts.length > 0;
+
+            if (hasServerWarnings || hasTriggered || criticalAlerts.length > 0) {
+                const warnings = hasServerWarnings 
+                    ? res.data.maintenanceWarnings 
+                    : criticalAlerts.map(a => ({
+                        type: a.type,
+                        next_service_mileage: a.next_service_mileage,
+                        remaining_mileage: a.remaining,
+                        is_overdue: a.isOverdue,
+                        overdue_by: a.isOverdue ? Math.abs(a.remaining) : 0
+                    }));
+
+                const isAnyOverdue = warnings.some(w => w.is_overdue);
+
+                setPostSubmitModal({
+                    show: true,
+                    hasOverdue: isAnyOverdue,
+                    warnings,
+                    savedMileage: parseInt(data.mileage)
+                });
+
+                if (isAnyOverdue) {
+                    toast.warn('บันทึกสำเร็จ! 🚨 มีรายการบำรุงรักษาที่เลยกำหนด', { autoClose: 5000 });
+                } else {
+                    toast.info('บันทึกสำเร็จ! ⚠️ มีรายการที่ใกล้ถึงรอบบำรุงรักษา (เหลือน้อยกว่า 1,000 กม.)', { autoClose: 5000 });
+                }
             } else {
                 toast.success('บันทึกระยะทางสำเร็จ!');
             }
             
             reset();
-            fetchLogs(selectedVehicle.vehicle_id || selectedVehicle.id);
+            const vid = selectedVehicle.vehicle_id || selectedVehicle.id;
+            fetchLogs(vid);
+            fetchForecast(vid);
         } catch (err) {
             toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาดในการบันทึก');
         }
         setSubmitting(false);
     };
-
-    const currentMileage = logs.length > 0 
-        ? logs[0].mileage_end 
-        : (selectedVehicle ? (selectedVehicle.current_mileage || selectedVehicle.currentMileage || 0) : 0);
-    const watchedMileage = watch('mileage');
-    const calculatedDistance = watchedMileage && parseInt(watchedMileage) >= currentMileage ? (parseInt(watchedMileage) - currentMileage) : 0;
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '-';
@@ -225,6 +300,9 @@ export default function MileagePage() {
                                             }
                                         })}
                                         type="number"
+                                        min={currentMileage}
+                                        step="1"
+                                        onKeyDown={(e) => ["e", "E", "+", "-", "."].includes(e.key) && e.preventDefault()}
                                         placeholder={`ขั้นต่ำ ${currentMileage.toLocaleString()} กม.`}
                                         className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA] bg-white"
                                     />
@@ -235,7 +313,7 @@ export default function MileagePage() {
                             </div>
 
                             {/* Distance Live Calculation */}
-                            {watchedMileage && parseInt(watchedMileage) >= currentMileage && (
+                            {isMileageValid && (
                                 <div className="bg-emerald-50 border border-emerald-200/80 rounded-xl p-4 flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <CheckCircle2 size={22} className="text-emerald-600 shrink-0" />
@@ -247,6 +325,106 @@ export default function MileagePage() {
                                     <span className="text-xs bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full font-bold">
                                         คำนวณถูกต้อง
                                     </span>
+                                </div>
+                            )}
+
+                            {/* Real-time Maintenance Live Alert */}
+                            {isMileageValid && vehicleForecasts.length > 0 && (
+                                <div className="space-y-3">
+                                    {hasOverdue ? (
+                                        <div className="bg-rose-50 border-2 border-rose-300/90 rounded-2xl p-4 md:p-5 shadow-xs transition-all">
+                                            <div className="flex items-start gap-3.5">
+                                                <div className="p-2.5 bg-rose-100 text-rose-600 rounded-xl shrink-0 mt-0.5">
+                                                    <AlertCircle size={22} />
+                                                </div>
+                                                <div className="flex-1 space-y-2">
+                                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                                        <h4 className="font-bold text-rose-900 text-sm md:text-base flex items-center gap-2">
+                                                            🚨 แจ้งเตือน: เลยกำหนดรอบบำรุงรักษาแล้ว!
+                                                        </h4>
+                                                        <span className="text-[11px] font-bold bg-rose-200 text-rose-900 px-2.5 py-0.5 rounded-full">
+                                                            ต้องเข้าศูนย์บริการทันที
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-rose-700 leading-relaxed">
+                                                        เลขไมล์ที่คุณระบุทำให้รถคันนี้วิ่งเลยกำหนดรอบซ่อมบำรุง กรุณานำรถเข้าตรวจเช็คโดยด่วน
+                                                    </p>
+                                                    <div className="space-y-1.5 pt-1">
+                                                        {criticalAlerts.map((item, idx) => (
+                                                            <div key={idx} className="bg-white/80 border border-rose-200 rounded-xl p-2.5 flex items-center justify-between text-xs">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Wrench size={14} className="text-rose-600" />
+                                                                    <span className="font-bold text-slate-800">
+                                                                        {typeLabelMap[item.type] || item.type}
+                                                                    </span>
+                                                                    <span className="text-slate-500 text-[11px]">
+                                                                        (รอบที่ {item.next_service_mileage.toLocaleString()} กม.)
+                                                                    </span>
+                                                                </div>
+                                                                <span className="font-extrabold text-rose-600">
+                                                                    {item.isOverdue 
+                                                                        ? `เลยกำหนดมาแล้ว ${Math.abs(item.remaining).toLocaleString()} กม.`
+                                                                        : `เหลืออีก ${item.remaining.toLocaleString()} กม.`}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : hasWarning ? (
+                                        <div className="bg-amber-50 border-2 border-amber-300/90 rounded-2xl p-4 md:p-5 shadow-xs transition-all">
+                                            <div className="flex items-start gap-3.5">
+                                                <div className="p-2.5 bg-amber-100 text-amber-700 rounded-xl shrink-0 mt-0.5">
+                                                    <AlertTriangle size={22} />
+                                                </div>
+                                                <div className="flex-1 space-y-2">
+                                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                                        <h4 className="font-bold text-amber-950 text-sm md:text-base flex items-center gap-2">
+                                                            ⚠️ แจ้งเตือน: ใกล้ถึงรอบบำรุงรักษา (เหลือน้อยกว่า 1,000 กม.)
+                                                        </h4>
+                                                        <span className="text-[11px] font-bold bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-full">
+                                                            เตรียมวางแผนเข้าศูนย์
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-amber-800 leading-relaxed">
+                                                        ระบบตรวจพบว่ามีรายการที่ใกล้ถึงรอบเปลี่ยน กรุณาเตรียมแจ้งซ่อมบำรุงล่วงหน้า
+                                                    </p>
+                                                    <div className="space-y-1.5 pt-1">
+                                                        {criticalAlerts.map((item, idx) => (
+                                                            <div key={idx} className="bg-white/80 border border-amber-200 rounded-xl p-2.5 flex items-center justify-between text-xs">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Wrench size={14} className="text-amber-700" />
+                                                                    <span className="font-bold text-slate-800">
+                                                                        {typeLabelMap[item.type] || item.type}
+                                                                    </span>
+                                                                    <span className="text-slate-500 text-[11px]">
+                                                                        (รอบที่ {item.next_service_mileage.toLocaleString()} กม.)
+                                                                    </span>
+                                                                </div>
+                                                                <span className="font-extrabold text-amber-700">
+                                                                    เหลืออีก {item.remaining.toLocaleString()} กม.
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-2.5 text-slate-600">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                                <span>สถานะรอบบำรุงรักษาปกติ:</span>
+                                                <span className="font-medium text-slate-700">
+                                                    {liveMaintenanceAlerts.map(a => `${typeLabelMap[a.type] || a.type} อีก ${a.remaining.toLocaleString()} กม.`).join(' • ')}
+                                                </span>
+                                            </div>
+                                            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md shrink-0">
+                                                ปกติ
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -318,6 +496,71 @@ export default function MileagePage() {
                         </div>
                     )}
                 </>
+            )}
+
+            {/* Post-Submit Maintenance Warning Dialog */}
+            {postSubmitModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+                    <div className="bg-white rounded-3xl max-w-md w-full p-6 md:p-7 shadow-2xl border border-slate-100 relative text-center space-y-4">
+                        <div className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center ${
+                            postSubmitModal.hasOverdue 
+                                ? 'bg-rose-100 text-rose-600' 
+                                : 'bg-amber-100 text-amber-600'
+                        }`}>
+                            {postSubmitModal.hasOverdue ? <AlertCircle size={36} /> : <AlertTriangle size={36} />}
+                        </div>
+
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800">
+                                {postSubmitModal.hasOverdue ? '🚨 เลยกำหนดรอบบำรุงรักษา!' : '⚠️ ใกล้ถึงรอบบำรุงรักษาแล้ว!'}
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-1">
+                                บันทึกเลขไมล์สำเร็จเรียบร้อย ({postSubmitModal.savedMileage?.toLocaleString()} กม.) แต่ระบบตรวจพบรายการที่ต้องดูแล:
+                            </p>
+                        </div>
+
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-left space-y-2.5">
+                            {postSubmitModal.warnings?.map((w, idx) => (
+                                <div key={idx} className="flex items-center justify-between text-xs pb-2 border-b border-slate-200/60 last:border-b-0 last:pb-0">
+                                    <div className="flex items-center gap-2">
+                                        <Wrench size={15} className={w.is_overdue ? "text-rose-600" : "text-amber-600"} />
+                                        <span className="font-bold text-slate-700">{typeLabelMap[w.type] || w.type}</span>
+                                    </div>
+                                    <span className={`font-extrabold ${w.is_overdue ? "text-rose-600" : "text-amber-600"}`}>
+                                        {w.is_overdue 
+                                            ? `เกินกำหนด ${(w.overdue_by || Math.abs(w.remaining_mileage)).toLocaleString()} กม.` 
+                                            : `เหลืออีก ${(w.remaining_mileage || 0).toLocaleString()} กม.`}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <p className="text-[11px] text-slate-500">
+                            คุณต้องการทำรายการแจ้งซ่อมบำรุงสำหรับรถทะเบียน <span className="font-bold text-slate-700">{selectedVehicle?.license_plate}</span> ตอนนี้เลยหรือไม่?
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setPostSubmitModal(null)}
+                                className="w-full sm:w-1/2 py-3 px-4 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer border border-slate-200"
+                            >
+                                รับทราบ (ปิดหน้าต่าง)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setPostSubmitModal(null);
+                                    navigate('/driver/repair');
+                                }}
+                                className="w-full sm:w-1/2 py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#8A1ABA] hover:bg-[#72159c] transition-all shadow-sm hover:shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                                <span>แจ้งซ่อมบำรุงตอนนี้</span>
+                                <ArrowRight size={14} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

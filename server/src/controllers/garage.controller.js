@@ -33,9 +33,25 @@ exports.getById = async (req, res) => {
 exports.create = async (req, res) => {
     try {
         const { specialization, is_active, ...rest } = req.body;
+
+        if (!rest.garage_name || !rest.garage_name.trim()) {
+            return res.status(400).json({ message: 'กรุณาระบุชื่ออู่/ศูนย์บริการ' });
+        }
+
+        if (!rest.phone || !/^0\d{8,9}$/.test(rest.phone.trim())) {
+            return res.status(400).json({ message: 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 9-10 หลัก ขึ้นต้นด้วย 0' });
+        }
+
+        if (rest.postal_code && rest.postal_code.trim() && !/^\d{5}$/.test(rest.postal_code.trim())) {
+            return res.status(400).json({ message: 'รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก' });
+        }
+
         const garage = await prisma.garage.create({
             data: {
                 ...rest,
+                garage_name: rest.garage_name.trim(),
+                phone: rest.phone.trim(),
+                postal_code: rest.postal_code ? rest.postal_code.trim() : null,
                 specialization: specialization || ['GENERAL'],
                 is_active: is_active !== undefined ? (is_active === true || is_active === 'true') : true
             }
@@ -48,6 +64,28 @@ exports.update = async (req, res) => {
     try {
         const { is_active, ...rest } = req.body;
         const data = { ...rest };
+
+        if (rest.garage_name !== undefined) {
+            if (!rest.garage_name.trim()) {
+                return res.status(400).json({ message: 'กรุณาระบุชื่ออู่/ศูนย์บริการ' });
+            }
+            data.garage_name = rest.garage_name.trim();
+        }
+
+        if (rest.phone !== undefined) {
+            if (!rest.phone || !/^0\d{8,9}$/.test(rest.phone.trim())) {
+                return res.status(400).json({ message: 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 9-10 หลัก ขึ้นต้นด้วย 0' });
+            }
+            data.phone = rest.phone.trim();
+        }
+
+        if (rest.postal_code !== undefined) {
+            if (rest.postal_code && rest.postal_code.trim() && !/^\d{5}$/.test(rest.postal_code.trim())) {
+                return res.status(400).json({ message: 'รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก' });
+            }
+            data.postal_code = rest.postal_code ? rest.postal_code.trim() : null;
+        }
+
         if (is_active !== undefined) {
             data.is_active = is_active === true || is_active === 'true';
         }

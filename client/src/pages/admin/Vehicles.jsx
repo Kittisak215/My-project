@@ -60,13 +60,39 @@ export default function VehiclesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [drivers, setDrivers] = useState([]);
+  const [vehicleTypes, setVehicleTypes] = useState([]);
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm();
   const limit = 10;
+
+  const selectedTypeId = watch("type_id");
+  
+  // Find the selected vehicle type object to get its defaults
+  const selectedTypeObj = vehicleTypes.find(t => t.type_id.toString() === selectedTypeId?.toString());
+  
+  // Fallback if not found (e.g. initial load or none selected)
+  const fallbackDefaults = { mineral: 5000, semi: 7000, fully: 10000, tire: 50000 };
+  
+  const currentDefaults = selectedTypeObj ? {
+    mineral: selectedTypeObj.oil_interval_mineral_km,
+    semi: selectedTypeObj.oil_interval_semi_synthetic_km,
+    fully: selectedTypeObj.oil_interval_fully_synthetic_km,
+    tire: selectedTypeObj.tire_change_interval_km
+  } : fallbackDefaults;
+
+  const fetchVehicleTypes = async () => {
+    try {
+      const res = await api.get("/vehicle-types");
+      setVehicleTypes(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchVehicles = async () => {
     setLoading(true);
@@ -95,6 +121,7 @@ export default function VehiclesPage() {
     // eslint-disable-next-line
     fetchVehicles();
     fetchDrivers();
+    fetchVehicleTypes();
   }, [search, status, page]);
 
   const openCreate = () => {
@@ -113,8 +140,6 @@ export default function VehiclesPage() {
       year: v.year,
       status: v.status,
       driver_id: v.driver_id ? v.driver_id.toString() : "",
-      oil_change_interval_km: v.oil_change_interval_km || "",
-      tire_change_interval_km: v.tire_change_interval_km || "",
       is_active: v.is_active !== false ? "true" : "false",
     });
     setShowModal(true);
@@ -131,12 +156,6 @@ export default function VehiclesPage() {
         year: parseInt(data.year),
         status: data.status,
         driver_id: data.driver_id ? parseInt(data.driver_id) : null,
-        oil_change_interval_km: data.oil_change_interval_km
-          ? parseInt(data.oil_change_interval_km)
-          : null,
-        tire_change_interval_km: data.tire_change_interval_km
-          ? parseInt(data.tire_change_interval_km)
-          : null,
         is_active: data.is_active === "true",
       };
       if (editing) await api.put(`/vehicles/${editing.vehicle_id}`, payload);
@@ -230,11 +249,11 @@ export default function VehiclesPage() {
                 <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-500">
                   <span>👤 {v.driver?.full_name || "ไม่ระบุ"}</span>
                   <span>
-                    น้ำมัน: {v.oil_change_interval_km?.toLocaleString() || "-"}{" "}
+                    น้ำมัน ({v.currentOilGradeLabel || "Fully"}): {v.currentOilInterval?.toLocaleString() || v.vehicleType?.oil_interval_fully_synthetic_km?.toLocaleString() || "-"}{" "}
                     กม.
                   </span>
                   <span>
-                    ยาง: {v.tire_change_interval_km?.toLocaleString() || "-"}{" "}
+                    ยาง: {v.vehicleType?.tire_change_interval_km?.toLocaleString() || "-"}{" "}
                     กม.
                   </span>
                   <span className="font-semibold text-slate-700">
@@ -347,16 +366,12 @@ export default function VehiclesPage() {
                       <span className="text-slate-400 font-medium">
                         น้ำมัน:
                       </span>{" "}
-                      {v.oil_change_interval_km?.toLocaleString() ||
-                        v.vehicleType?.oil_change_interval_km?.toLocaleString() ||
-                        "-"}{" "}
-                      กม.
+                      {v.currentOilInterval?.toLocaleString() || "-"}{" "}
+                      กม. ({v.currentOilGradeLabel})
                     </div>
                     <div className="text-slate-600">
                       <span className="text-slate-400 font-medium">ยาง:</span>{" "}
-                      {v.tire_change_interval_km?.toLocaleString() ||
-                        v.vehicleType?.tire_change_interval_km?.toLocaleString() ||
-                        "-"}{" "}
+                      {v.vehicleType?.tire_change_interval_km?.toLocaleString() || "-"}{" "}
                       กม.
                     </div>
                   </td>
@@ -483,10 +498,9 @@ export default function VehiclesPage() {
                   className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                 >
                   <option value="">เลือกประเภท</option>
-                  <option value="1">รถตู้ (Van)</option>
-                  <option value="2">รถกระบะ (Pickup)</option>
-                  <option value="3">รถเก๋ง (Sedan)</option>
-                  <option value="4">รถบัส (Bus)</option>
+                  {vehicleTypes.map(vt => (
+                    <option key={vt.type_id} value={vt.type_id}>{vt.type_name}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -494,58 +508,108 @@ export default function VehiclesPage() {
                   ยี่ห้อ *
                 </label>
                 <input
-                  {...register("brand", { required: true })}
-                  className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  {...register("brand", {
+                    required: "กรุณาระบุยี่ห้อ",
+                    maxLength: { value: 50, message: "ยี่ห้อต้องไม่เกิน 50 ตัวอักษร" },
+                  })}
+                  maxLength={50}
+                  placeholder="เช่น Toyota, Isuzu"
+                  className={clsx(
+                    "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
+                    errors.brand ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                  )}
                 />
+                {errors.brand && <p className="text-xs text-red-500 mt-1">{errors.brand.message}</p>}
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">
                   รุ่น *
                 </label>
                 <input
-                  {...register("model", { required: true })}
-                  className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  {...register("model", {
+                    required: "กรุณาระบุรุ่น",
+                    maxLength: { value: 50, message: "รุ่นต้องไม่เกิน 50 ตัวอักษร" },
+                  })}
+                  maxLength={50}
+                  placeholder="เช่น Commuter, D-MAX"
+                  className={clsx(
+                    "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
+                    errors.model ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                  )}
                 />
+                {errors.model && <p className="text-xs text-red-500 mt-1">{errors.model.message}</p>}
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">สี</label>
                 <input
-                  {...register("color")}
-                  className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  {...register("color", {
+                    maxLength: { value: 50, message: "สีต้องไม่เกิน 50 ตัวอักษร" },
+                  })}
+                  maxLength={50}
+                  placeholder="เช่น ขาว, เงิน, ดำ"
+                  className={clsx(
+                    "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
+                    errors.color ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                  )}
                 />
+                {errors.color && <p className="text-xs text-red-500 mt-1">{errors.color.message}</p>}
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">
                   ปีที่ผลิต (ค.ศ.) *
                 </label>
                 <input
-                  {...register("year", { required: true, valueAsNumber: true })}
+                  {...register("year", {
+                    required: "กรุณาระบุปีที่ผลิต",
+                    valueAsNumber: true,
+                    min: { value: 1970, message: "ปีที่ผลิตต้องเป็น ค.ศ. (ตั้งแต่ 1970 เป็นต้นไป)" },
+                    max: {
+                      value: new Date().getFullYear() + 1,
+                      message: `ปีที่ผลิตต้องไม่เกิน ค.ศ. ${new Date().getFullYear() + 1}`,
+                    },
+                  })}
                   type="number"
-                  placeholder="เช่น 2020, 2023"
-                  className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 placeholder-slate-400"
+                  min="1970"
+                  max={new Date().getFullYear() + 1}
+                  onKeyDown={(e) => ["e", "E", "+", "-", "."].includes(e.key) && e.preventDefault()}
+                  placeholder={`เช่น 2018, ${new Date().getFullYear()}`}
+                  className={clsx(
+                    "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none placeholder-slate-400",
+                    errors.year ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                  )}
                 />
+                {errors.year && <p className="text-xs text-red-500 mt-1">{errors.year.message}</p>}
               </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  ระยะถ่ายน้ำมันเครื่อง (กม.)
-                </label>
-                <input
-                  {...register("oil_change_interval_km")}
-                  type="number"
-                  placeholder="ค่าเริ่มต้นตามประเภทรถ"
-                  className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 placeholder-slate-400"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">
-                  ระยะเปลี่ยนยาง (กม.)
-                </label>
-                <input
-                  {...register("tire_change_interval_km")}
-                  type="number"
-                  placeholder="ค่าเริ่มต้นตามประเภทรถ"
-                  className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 placeholder-slate-400"
-                />
+              <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                    ⚙️ รอบบำรุงรักษามาตรฐาน (อ้างอิงตามประเภทรถ)
+                  </span>
+                  <span className="text-[11px] font-medium text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
+                    {selectedTypeObj ? selectedTypeObj.type_name : "ยังไม่ได้เลือกประเภทรถ"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <p className="text-[11px] text-slate-400">Mineral</p>
+                    <p className="font-semibold text-slate-700 mt-0.5">{currentDefaults.mineral?.toLocaleString() || "-"} กม.</p>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <p className="text-[11px] text-slate-400">กึ่งสังเคราะห์</p>
+                    <p className="font-semibold text-slate-700 mt-0.5">{currentDefaults.semi?.toLocaleString() || "-"} กม.</p>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <p className="text-[11px] text-slate-400">สังเคราะห์แท้</p>
+                    <p className="font-semibold text-slate-700 mt-0.5">{currentDefaults.fully?.toLocaleString() || "-"} กม.</p>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <p className="text-[11px] text-slate-400">เปลี่ยนยาง</p>
+                    <p className="font-semibold text-slate-700 mt-0.5">{currentDefaults.tire?.toLocaleString() || "-"} กม.</p>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-2">
+                  * กำหนดหรือแก้ไขระยะรอบได้ที่เมนู <strong>"จัดการประเภทยานพาหนะ"</strong> (จะมีผลกับรถทุกคันในประเภทนี้ทันที)
+                </p>
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">

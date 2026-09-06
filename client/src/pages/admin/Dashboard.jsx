@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Car,
   Wrench,
@@ -162,6 +163,7 @@ function KpiCard({
 
 export default function AdminDashboard() {
   injectStyle("admin-dash-anim", ANIM_STYLE);
+  const navigate = useNavigate();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -399,14 +401,15 @@ export default function AdminDashboard() {
             {data?.maintenanceAlerts?.map((alert) => (
               <div
                 key={alert.alert_id}
-                className="p-4 hover:bg-violet-50/30 transition-colors"
+                onClick={() => navigate('/admin/alerts', { state: { openAlertId: alert.alert_id } })}
+                className="p-4 hover:bg-violet-50/30 transition-colors cursor-pointer"
               >
                 <div className="flex items-center justify-between">
                   <p className="font-semibold text-slate-800 text-sm">
                     {alert.vehicle?.license_plate}
                   </p>
                   <AlertBadge
-                    status={alert.is_resolved ? "DONE" : "UPCOMING"}
+                    status={alert.status || (alert.is_resolved ? "DONE" : ((alert.vehicle?.current_mileage || 0) >= alert.next_service_mileage ? "OVERDUE" : "UPCOMING"))}
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
@@ -451,7 +454,8 @@ export default function AdminDashboard() {
                 {data?.maintenanceAlerts?.map((alert) => (
                   <tr
                     key={alert.alert_id}
-                    className="transition-colors duration-150"
+                    onClick={() => navigate('/admin/alerts', { state: { openAlertId: alert.alert_id } })}
+                    className="transition-colors duration-150 cursor-pointer"
                     onMouseEnter={(e) =>
                       (e.currentTarget.style.background = "#faf5ff")
                     }
@@ -467,7 +471,7 @@ export default function AdminDashboard() {
                     </td>
                     <td className="px-6 py-4">
                       <AlertBadge
-                        status={alert.is_resolved ? "DONE" : "UPCOMING"}
+                        status={alert.status || (alert.is_resolved ? "DONE" : ((alert.vehicle?.current_mileage || 0) >= alert.next_service_mileage ? "OVERDUE" : "UPCOMING"))}
                       />
                     </td>
                   </tr>
@@ -514,7 +518,8 @@ export default function AdminDashboard() {
             {data?.recentRepairs?.map((r) => (
               <div
                 key={r.request_id}
-                className="p-4 hover:bg-violet-50/30 transition-colors"
+                onClick={() => navigate('/admin/repairs', { state: { openRequestId: r.request_id } })}
+                className="p-4 hover:bg-violet-50/30 transition-colors cursor-pointer"
               >
                 <div className="flex items-center justify-between mb-1">
                   <p className="font-semibold text-slate-800 text-sm">
@@ -571,7 +576,8 @@ export default function AdminDashboard() {
                 {data?.recentRepairs?.map((r) => (
                   <tr
                     key={r.request_id}
-                    className="transition-colors duration-150"
+                    onClick={() => navigate('/admin/repairs', { state: { openRequestId: r.request_id } })}
+                    className="transition-colors duration-150 cursor-pointer"
                     onMouseEnter={(e) =>
                       (e.currentTarget.style.background = "#faf5ff")
                     }

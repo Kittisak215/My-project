@@ -1,4 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useLocation } from "react-router-dom";
+import Zoom from "react-medium-image-zoom";
+import "react-medium-image-zoom/dist/styles.css";
 import {
   Search,
   X,
@@ -115,10 +118,15 @@ export default function RepairsPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedRepair, setSelectedRepair] = useState(null);
   const [selectedDetailRepair, setSelectedDetailRepair] = useState(null);
+  const [viewReceipt, setViewReceipt] = useState(null);
   const [garages, setGarages] = useState([]);
-  const { register, handleSubmit, reset, watch, control } = useForm();
+  const { register, handleSubmit, reset, watch, control, formState: { errors } } = useForm();
   const limit = 10;
   const watchStatus = watch("status");
+  const watchPartsCost = watch("parts_cost");
+  const watchLaborCost = watch("labor_cost");
+  const watchRepairStartDate = watch("repair_start_date");
+  const liveTotalCost = (parseFloat(watchPartsCost) || 0) + (parseFloat(watchLaborCost) || 0);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -140,13 +148,33 @@ export default function RepairsPage() {
     fetchAll();
   }, [fetchAll]);
 
+  const location = useLocation();
+  const locationStateHandled = useRef(false);
+
+  useEffect(() => {
+    if (location.state?.openRequestId && !locationStateHandled.current) {
+      locationStateHandled.current = true;
+      // Fetch the specific request to guarantee we have it, even if not on the current page
+      api.get(`/repairs/${location.state.openRequestId}`).then(res => {
+         if (res.data) openStatusModal(res.data);
+      }).catch(() => toast.error("ไม่พบข้อมูลคำร้องซ่อมนี้"));
+      
+      // Clean up the state so it doesn't reopen on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
   const openStatusModal = (r) => {
     setSelectedRepair(r);
+    const pCost = r.parts_cost != null ? r.parts_cost : (r.total_cost != null && r.labor_cost == null ? r.total_cost : "");
+    const lCost = r.labor_cost != null ? r.labor_cost : "";
     reset({
       status: r.status,
       note: r.note,
       garage_id: r.garage_id,
-      total_cost: r.total_cost,
+      parts_cost: pCost,
+      labor_cost: lCost,
+      total_cost: r.total_cost ?? "",
       estimated_cost: r.estimated_cost,
       repair_start_date: r.repair_start_date
         ? r.repair_start_date.slice(0, 10)
@@ -156,6 +184,7 @@ export default function RepairsPage() {
         : "",
       repair_end_date: r.repair_end_date ? r.repair_end_date.slice(0, 10) : "",
       oil_grade: r.oil_grade || "",
+      is_tire_changed: r.is_tire_changed ? "true" : "",
     });
     setShowStatusModal(true);
   };
@@ -167,7 +196,30 @@ export default function RepairsPage() {
 
   const onStatusSubmit = async (data) => {
     try {
-      await api.patch(`/repairs/${selectedRepair.request_id}/status`, data);
+      if (data.repair_start_date && data.repair_end_date) {
+        if (new Date(data.repair_end_date) < new Date(data.repair_start_date)) {
+          toast.error("วันที่ซ่อมเสร็จจริงต้องไม่เกิดขึ้นก่อนวันที่เข้าซ่อม");
+          return;
+        }
+      }
+      const pCost = data.parts_cost !== "" && data.parts_cost !== null && !isNaN(data.parts_cost) ? parseFloat(data.parts_cost) : null;
+      const lCost = data.labor_cost !== "" && data.labor_cost !== null && !isNaN(data.labor_cost) ? parseFloat(data.labor_cost) : null;
+      if (pCost !== null && pCost < 0) {
+        toast.error("ค่าอะไหล่ต้องไม่ติดลบ");
+        return;
+      }
+      if (lCost !== null && lCost < 0) {
+        toast.error("ค่าแรงช่างต้องไม่ติดลบ");
+        return;
+      }
+      const computedTotal = (pCost !== null || lCost !== null) ? ((pCost || 0) + (lCost || 0)) : (data.total_cost ? parseFloat(data.total_cost) : null);
+      const payload = {
+        ...data,
+        parts_cost: pCost,
+        labor_cost: lCost,
+        total_cost: computedTotal,
+      };
+      await api.patch(`/repairs/${selectedRepair.request_id}/status`, payload);
       toast.success("อัปเดตสถานะสำเร็จ");
       setShowStatusModal(false);
       fetchAll();
@@ -318,15 +370,22 @@ export default function RepairsPage() {
                       </p>
                     )}
                     {r.total_cost && (
-                      <p>
-                        จริง:{" "}
-                        <span className="font-semibold text-slate-700">
-                          {parseFloat(r.total_cost).toLocaleString("th-TH", {
-                            minimumFractionDigits: 2,
-                          })}{" "}
-                          บ.
-                        </span>
-                      </p>
+                      <div>
+                        <p>
+                          จริง:{" "}
+                          <span className="font-semibold text-slate-700">
+                            {parseFloat(r.total_cost).toLocaleString("th-TH", {
+                              minimumFractionDigits: 2,
+                            })}{" "}
+                            บ.
+                          </span>
+                        </p>
+                        {(r.parts_cost || r.labor_cost) && (
+                          <p className="text-[10px] text-slate-400">
+                            (อะไหล่: ฿{parseFloat(r.parts_cost || 0).toLocaleString()} | ค่าแรง: ฿{parseFloat(r.labor_cost || 0).toLocaleString()})
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 w-full">
@@ -498,10 +557,17 @@ export default function RepairsPage() {
                           </div>
                         )}
                         {r.total_cost ? (
-                          <div className="font-semibold text-slate-800 text-sm">
-                            {parseFloat(r.total_cost).toLocaleString("th-TH", {
-                              minimumFractionDigits: 2,
-                            })}
+                          <div>
+                            <div className="font-semibold text-slate-800 text-sm">
+                              {parseFloat(r.total_cost).toLocaleString("th-TH", {
+                                minimumFractionDigits: 2,
+                              })}
+                            </div>
+                            {(r.parts_cost || r.labor_cost) && (
+                              <div className="text-[11px] text-slate-500 whitespace-nowrap mt-0.5">
+                                อะไหล่: ฿{parseFloat(r.parts_cost || 0).toLocaleString()} | ค่าแรง: ฿{parseFloat(r.labor_cost || 0).toLocaleString()}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           !r.estimated_cost && (
@@ -680,29 +746,87 @@ export default function RepairsPage() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">
-                      ราคาประเมิน (บาท)
-                    </label>
-                    <input
-                      {...register("estimated_cost", { valueAsNumber: true })}
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500"
-                    />
+                <div>
+                  <label className="text-sm font-medium text-slate-700">
+                    ราคาประเมิน (บาท)
+                  </label>
+                  <input
+                    {...register("estimated_cost", {
+                      valueAsNumber: true,
+                      min: { value: 0, message: "ราคาประเมินต้องไม่ติดลบ" },
+                    })}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="0.00"
+                    onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
+                    className={clsx(
+                      "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
+                      errors.estimated_cost ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-violet-500"
+                    )}
+                  />
+                  {errors.estimated_cost && <p className="text-xs text-red-500 mt-1">{errors.estimated_cost.message}</p>}
+                </div>
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      แจกแจงค่าใช้จ่ายจริง
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium">
+                      คำนวณรวมอัตโนมัติ
+                    </span>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">
-                      ค่าใช้จ่ายจริง (บาท)
-                    </label>
-                    <input
-                      {...register("total_cost", { valueAsNumber: true })}
-                      type="number"
-                      step="0.01"
-                      className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500"
-                    />
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-slate-600 block mb-1">
+                        ค่าอะไหล่ (บาท)
+                      </label>
+                      <input
+                        {...register("parts_cost", {
+                          valueAsNumber: true,
+                          min: { value: 0, message: "ค่าอะไหล่ต้องไม่ติดลบ" },
+                        })}
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="0.00"
+                        onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
+                        className={clsx(
+                          "block w-full bg-white border rounded-lg px-3 py-2 text-sm focus:outline-none font-medium",
+                          errors.parts_cost ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-violet-500"
+                        )}
+                      />
+                      {errors.parts_cost && <p className="text-xs text-red-500 mt-1">{errors.parts_cost.message}</p>}
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-600 block mb-1">
+                        ค่าแรงช่าง (บาท)
+                      </label>
+                      <input
+                        {...register("labor_cost", {
+                          valueAsNumber: true,
+                          min: { value: 0, message: "ค่าแรงช่างต้องไม่ติดลบ" },
+                        })}
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="0.00"
+                        onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
+                        className={clsx(
+                          "block w-full bg-white border rounded-lg px-3 py-2 text-sm focus:outline-none font-medium",
+                          errors.labor_cost ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-violet-500"
+                        )}
+                      />
+                      {errors.labor_cost && <p className="text-xs text-red-500 mt-1">{errors.labor_cost.message}</p>}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-sm">
+                    <span className="font-medium text-slate-700">รวมค่าใช้จ่ายจริงทั้งหมด:</span>
+                    <span className="font-bold text-violet-700 text-base">
+                      {liveTotalCost.toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท
+                    </span>
                   </div>
                 </div>
                 <div>
@@ -720,6 +844,7 @@ export default function RepairsPage() {
                             date ? date.toLocaleDateString("en-CA") : "",
                           )
                         }
+                        minDate={watchRepairStartDate ? new Date(watchRepairStartDate) : null}
                         dateFormat="dd/MM/yyyy"
                         placeholderText="วว/ดด/ปปปป"
                         className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500 text-slate-800 bg-white"
@@ -746,15 +871,13 @@ export default function RepairsPage() {
                           — ไม่ระบุ / ไม่ได้เปลี่ยนน้ำมันเครื่อง —
                         </option>
                         <option value="MINERAL">
-                          เกรดธรรมดา (Mineral) - เปลี่ยนอีกที 5,000 กม.
+                          เกรดธรรมดา (Mineral) - เปลี่ยนอีกที {(selectedRepair?.vehicle?.vehicleType?.oil_interval_mineral_km ?? 5000).toLocaleString()} กม.
                         </option>
                         <option value="SEMI_SYNTHETIC">
-                          กึ่งสังเคราะห์ (Semi-Synthetic) - เปลี่ยนอีกที 7,000
-                          กม.
+                          กึ่งสังเคราะห์ (Semi-Synthetic) - เปลี่ยนอีกที {(selectedRepair?.vehicle?.vehicleType?.oil_interval_semi_synthetic_km ?? 7000).toLocaleString()} กม.
                         </option>
                         <option value="FULLY_SYNTHETIC">
-                          สังเคราะห์แท้ (Fully Synthetic) - เปลี่ยนอีกที 10,000
-                          กม.
+                          สังเคราะห์แท้ (Fully Synthetic) - เปลี่ยนอีกที {(selectedRepair?.vehicle?.vehicleType?.oil_interval_fully_synthetic_km ?? 10000).toLocaleString()} กม.
                         </option>
                       </select>
                     </div>
@@ -773,15 +896,43 @@ export default function RepairsPage() {
                       >
                         <option value="">— ไม่ระบุ / ไม่ได้เปลี่ยนยาง —</option>
                         <option value="false_emergency">
-                          เปลี่ยนบางเส้น/ฉุกเฉิน (ไม่รีเซ็ตรอบ 50,000 กม.)
+                          เปลี่ยนบางเส้น/ฉุกเฉิน (ไม่รีเซ็ตรอบ)
                         </option>
                         <option value="true">
-                          เปลี่ยนใหม่ 4 เส้น (รีเซ็ตรอบ 50,000 กม. ใหม่)
+                          เปลี่ยนใหม่ 4 เส้น (รีเซ็ตรอบ {(selectedRepair?.vehicle?.vehicleType?.tire_change_interval_km ?? 50000).toLocaleString()} กม. ใหม่)
                         </option>
                       </select>
                     </div>
                   </div>
                 )}
+                {/* Receipt Image in Edit Modal */}
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold text-slate-700">
+                      รูปภาพหลักฐาน / ใบเสร็จ
+                    </p>
+                  </div>
+                  {selectedRepair?.receipt_image ? (
+                    <button type="button" onClick={() => setViewReceipt(selectedRepair.receipt_image)} className="w-full relative group block">
+                      <img
+                        src={selectedRepair.receipt_image}
+                        alt="ใบเสร็จ/หลักฐาน"
+                        className="w-full max-h-64 object-contain rounded border bg-white cursor-pointer group-hover:opacity-90 transition-opacity shadow-sm"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-lg font-medium backdrop-blur-sm shadow-sm flex items-center gap-1">
+                          <Search size={14} /> คลิกเพื่อดูรูปเต็ม
+                        </span>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-6 text-slate-400 gap-2 bg-white rounded-lg border border-dashed">
+                      <ImageOff size={24} />
+                      <p className="text-xs">ยังไม่มีการแนบสลิป</p>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label className="text-sm font-medium text-slate-700">
                     หมายเหตุ
@@ -913,21 +1064,28 @@ export default function RepairsPage() {
 
                 {/* Costs */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
-                    <p className="text-xs text-amber-600">ราคาประเมิน</p>
-                    <p className="font-semibold text-amber-800">
+                  <div className="bg-slate-50 p-3 rounded-lg border">
+                    <p className="text-xs text-slate-500">ราคาประเมิน</p>
+                    <p className="font-semibold text-slate-700">
                       {selectedDetailRepair.estimated_cost
                         ? `${parseFloat(selectedDetailRepair.estimated_cost).toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท`
                         : "-"}
                     </p>
                   </div>
                   <div className="bg-slate-50 p-3 rounded-lg border">
-                    <p className="text-xs text-slate-400">ค่าใช้จ่ายรวม</p>
+                    <p className="text-xs text-slate-500">ค่าใช้จ่ายรวม</p>
                     <p className="font-semibold text-blue-600">
                       {selectedDetailRepair.total_cost
                         ? `${parseFloat(selectedDetailRepair.total_cost).toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท`
                         : "-"}
                     </p>
+                    {(selectedDetailRepair.parts_cost || selectedDetailRepair.labor_cost) && (
+                      <div className="text-[11px] text-slate-500 mt-1 space-x-2">
+                        <span>อะไหล่: ฿{parseFloat(selectedDetailRepair.parts_cost || 0).toLocaleString()}</span>
+                        <span>•</span>
+                        <span>ค่าแรง: ฿{parseFloat(selectedDetailRepair.labor_cost || 0).toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -942,17 +1100,27 @@ export default function RepairsPage() {
                   </div>
                 )}
                 {selectedDetailRepair.oil_grade && (
-                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg">
-                    <p className="text-xs text-amber-600 font-medium">
-                      🛢️ เกรดน้ำมันเครื่องที่ใช้
+                  <div className="bg-slate-50 p-3 rounded-lg border">
+                    <p className="text-xs text-slate-400">
+                      เกรดน้ำมันเครื่องที่ใช้
                     </p>
-                    <p className="font-semibold text-amber-800 mt-1">
+                    <p className="text-slate-700 mt-1">
                       {selectedDetailRepair.oil_grade === "MINERAL" &&
-                        "🟡 ธรรมดา (Mineral) — 5,000 กม."}
+                        `ธรรมดา (Mineral) — ${(selectedDetailRepair?.vehicle?.vehicleType?.oil_interval_mineral_km ?? 5000).toLocaleString()} กม.`}
                       {selectedDetailRepair.oil_grade === "SEMI_SYNTHETIC" &&
-                        "🟠 กึ่งสังเคราะห์ (Semi-Synthetic) — 7,000 กม."}
+                        `กึ่งสังเคราะห์ (Semi-Synthetic) — ${(selectedDetailRepair?.vehicle?.vehicleType?.oil_interval_semi_synthetic_km ?? 7000).toLocaleString()} กม.`}
                       {selectedDetailRepair.oil_grade === "FULLY_SYNTHETIC" &&
-                        "🔵 สังเคราะห์แท้ (Fully Synthetic) — 10,000 กม."}
+                        `สังเคราะห์แท้ (Fully Synthetic) — ${(selectedDetailRepair?.vehicle?.vehicleType?.oil_interval_fully_synthetic_km ?? 10000).toLocaleString()} กม.`}
+                    </p>
+                  </div>
+                )}
+                {selectedDetailRepair.is_tire_changed && (
+                  <div className="bg-slate-50 p-3 rounded-lg border">
+                    <p className="text-xs text-slate-400">
+                      การเปลี่ยนยางรถยนต์
+                    </p>
+                    <p className="text-slate-700 mt-1">
+                      เปลี่ยนใหม่ 4 เส้น (รีเซ็ตรอบ {(selectedDetailRepair?.vehicle?.vehicleType?.tire_change_interval_km ?? 50000).toLocaleString()} กม. ใหม่)
                     </p>
                   </div>
                 )}
@@ -969,29 +1137,20 @@ export default function RepairsPage() {
                     <p className="text-xs text-slate-400">
                       รูปภาพหลักฐาน / ใบเสร็จ
                     </p>
-                    {selectedDetailRepair.receipt_image && (
-                      <a
-                        href={selectedDetailRepair.receipt_image}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        <ExternalLink size={12} /> เปิดรูปภาพขนาดเต็ม
-                      </a>
-                    )}
                   </div>
                   {selectedDetailRepair.receipt_image ? (
-                    <a
-                      href={selectedDetailRepair.receipt_image}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
+                    <button type="button" onClick={() => setViewReceipt(selectedDetailRepair.receipt_image)} className="w-full relative group block">
                       <img
                         src={selectedDetailRepair.receipt_image}
                         alt="ใบเสร็จ/หลักฐาน"
-                        className="w-full max-h-64 object-contain rounded border bg-white cursor-pointer hover:opacity-90 transition-opacity"
+                        className="w-full max-h-64 object-contain rounded border bg-white cursor-pointer group-hover:opacity-90 transition-opacity"
                       />
-                    </a>
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-lg font-medium backdrop-blur-sm shadow-sm flex items-center gap-1">
+                          <Search size={14} /> คลิกเพื่อดูรูปเต็ม
+                        </span>
+                      </div>
+                    </button>
                   ) : (
                     <div className="flex flex-col items-center justify-center py-6 text-slate-400 gap-2">
                       <ImageOff size={28} />
@@ -1012,6 +1171,21 @@ export default function RepairsPage() {
             </Modal>
           )}
         </>
+      )}
+
+      {/* Receipt Image Modal */}
+      {viewReceipt && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-200" onClick={() => setViewReceipt(null)}>
+          <div className="relative max-w-3xl w-full flex flex-col items-center animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setViewReceipt(null)}
+              className="absolute -top-12 right-0 p-2 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full transition-colors cursor-pointer"
+            >
+              <X size={24} />
+            </button>
+            <img src={viewReceipt} alt="Receipt" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" />
+          </div>
+        </div>
       )}
     </div>
   );

@@ -43,7 +43,12 @@ export default function GaragesPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const { register, handleSubmit, reset } = useForm();
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm();
   const limit = 10;
 
   const fetchGarages = async () => {
@@ -360,9 +365,18 @@ export default function GaragesPage() {
                 ชื่ออู่/ศูนย์บริการ *
               </label>
               <input
-                {...register("garage_name", { required: true })}
-                className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                {...register("garage_name", {
+                  required: "กรุณาระบุชื่ออู่/ศูนย์บริการ",
+                  maxLength: { value: 100, message: "ความยาวไม่เกิน 100 ตัวอักษร" }
+                })}
+                className={clsx(
+                  "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
+                  errors.garage_name ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                )}
               />
+              {errors.garage_name && (
+                <p className="text-xs text-red-500 mt-1">{errors.garage_name.message}</p>
+              )}
             </div>
 
             <div>
@@ -399,9 +413,27 @@ export default function GaragesPage() {
                 เบอร์โทรศัพท์ *
               </label>
               <input
-                {...register("phone", { required: true })}
-                className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                type="tel"
+                maxLength={10}
+                placeholder="เช่น 021234567 หรือ 0812345678"
+                onInput={(e) => {
+                  e.target.value = e.target.value.replace(/\D/g, "");
+                }}
+                {...register("phone", {
+                  required: "กรุณาระบุเบอร์โทรศัพท์",
+                  pattern: {
+                    value: /^0\d{8,9}$/,
+                    message: "เบอร์โทรศัพท์ต้องเป็นตัวเลข 9-10 หลัก ขึ้นต้นด้วย 0",
+                  },
+                })}
+                className={clsx(
+                  "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
+                  errors.phone ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                )}
               />
+              {errors.phone && (
+                <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>
+              )}
             </div>
 
             <div>
@@ -451,9 +483,24 @@ export default function GaragesPage() {
                   รหัสไปรษณีย์
                 </label>
                 <input
-                  {...register("postal_code")}
-                  className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  type="text"
+                  maxLength={5}
+                  placeholder="เช่น 10110"
+                  onInput={(e) => {
+                    e.target.value = e.target.value.replace(/\D/g, "");
+                  }}
+                  {...register("postal_code", {
+                    validate: (val) =>
+                      !val || /^\d{5}$/.test(val) || "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก",
+                  })}
+                  className={clsx(
+                    "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
+                    errors.postal_code ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                  )}
                 />
+                {errors.postal_code && (
+                  <p className="text-xs text-red-500 mt-1">{errors.postal_code.message}</p>
+                )}
               </div>
             </div>
 

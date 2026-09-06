@@ -17,8 +17,24 @@ const checkMaintenanceAlerts = async () => {
 
         for (const v of vehicles) {
             const currentMileage = v.mileageLogs?.[0]?.mileage_end || 0;
-            const oilInterval = v.oil_change_interval_km ?? v.vehicleType?.oil_change_interval_km ?? 10000;
             const tireInterval = v.tire_change_interval_km ?? v.vehicleType?.tire_change_interval_km ?? 50000;
+
+            // ดึงเกรดน้ำมันล่าสุดที่เคยใช้กับรถคันนี้
+            const lastOilRepair = await prisma.repairRequest.findFirst({
+                where: { vehicle_id: v.vehicle_id, oil_grade: { not: null } },
+                orderBy: { created_at: 'desc' },
+                select: { oil_grade: true }
+            });
+            const lastOilGrade = lastOilRepair?.oil_grade || 'FULLY_SYNTHETIC';
+
+            // ดึง interval ตามเกรดน้ำมัน โดยอ้างอิงค่าจาก Vehicle หรือ VehicleType
+            const vt = v.vehicleType;
+            const gradeIntervalMap = {
+                MINERAL:         v.oil_interval_mineral_km         ?? vt?.oil_interval_mineral_km         ?? 5000,
+                SEMI_SYNTHETIC:  v.oil_interval_semi_synthetic_km  ?? vt?.oil_interval_semi_synthetic_km  ?? 7000,
+                FULLY_SYNTHETIC: v.oil_interval_fully_synthetic_km ?? vt?.oil_interval_fully_synthetic_km ?? 10000,
+            };
+            const oilInterval = gradeIntervalMap[lastOilGrade] ?? gradeIntervalMap.FULLY_SYNTHETIC;
 
             const checkType = async (type, interval) => {
                 const pendingAlert = v.alerts.find(a => a.alert_type === type);

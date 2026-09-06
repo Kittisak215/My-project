@@ -19,6 +19,7 @@ import DriversPage from './pages/admin/Drivers';
 import RepairsPage from './pages/admin/Repairs';
 import GaragesPage from './pages/admin/Garages';
 import AlertsPage from './pages/admin/Alerts';
+import VehicleTypesPage from './pages/admin/VehicleTypes';
 
 // Executive Pages
 import ExecutiveDashboard from './pages/executive/Dashboard';
@@ -65,6 +66,7 @@ function App() {
           <Route path="repairs" element={<RepairsPage />} />
           <Route path="garages" element={<GaragesPage />} />
           <Route path="alerts" element={<AlertsPage />} />
+          <Route path="vehicle-types" element={<VehicleTypesPage />} />
         </Route>
 
         {/* Executive Routes */}

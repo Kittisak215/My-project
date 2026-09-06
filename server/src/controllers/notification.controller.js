@@ -64,6 +64,7 @@ exports.getDriverNotifications = async (req, res) => {
                     id: `repair-${r.request_id}`,
                     type: statusType[r.status] || 'info',
                     category: 'REPAIR_STATUS',
+                    data_id: r.request_id,
                     title: `${reqCode} — ${statusLabel[r.status] || r.status}`,
                     body: `ทะเบียน ${plate}: ${r.issue_description}`,
                     status: r.status,
@@ -90,13 +91,20 @@ exports.getDriverNotifications = async (req, res) => {
             });
 
             for (const a of maintenanceAlerts) {
+                const isReminded = (a.remind_count || 0) > 0;
                 notifications.push({
                     id: `maint-${a.alert_id}`,
-                    type: 'warning',
+                    type: isReminded ? 'error' : 'warning',
                     category: 'MAINTENANCE',
-                    title: alertTypeLabel[a.alert_type] || 'แจ้งเตือนบำรุงรักษา',
-                    body: `ทะเบียน ${a.vehicle?.license_plate}: กำหนดที่ ${(a.next_service_mileage || 0).toLocaleString()} กม.`,
-                    created_at: new Date().toISOString(),
+                    data_id: a.alert_id,
+                    is_reminded: isReminded,
+                    remind_count: a.remind_count || 0,
+                    reminded_at: a.reminded_at || null,
+                    title: isReminded 
+                        ? `⚠️ [แอดมินเตือนซ้ำ] ${alertTypeLabel[a.alert_type] || 'แจ้งเตือนบำรุงรักษา'}` 
+                        : (alertTypeLabel[a.alert_type] || 'แจ้งเตือนบำรุงรักษา'),
+                    body: `ทะเบียน ${a.vehicle?.license_plate}: กำหนดที่ ${(a.next_service_mileage || 0).toLocaleString()} กม.${isReminded ? ` (แอดมินส่งเตือนซ้ำแล้ว ${a.remind_count} ครั้ง)` : ''}`,
+                    created_at: a.reminded_at ? new Date(a.reminded_at).toISOString() : new Date().toISOString(),
                 });
             }
         }
@@ -186,6 +194,7 @@ exports.getAdminNotifications = async (req, res) => {
                 id: `admin-repair-${r.request_id}`,
                 type: isEmergency && r.status === 'PENDING' ? 'error' : (statusType[r.status] || 'info'),
                 category: 'REPAIR_STATUS',
+                data_id: r.request_id,
                 title: `${titlePrefix}${reqCode} — ${statusLabel[r.status] || r.status}`,
                 body: `ทะเบียน ${r.vehicle?.license_plate || 'ไม่ระบุ'}: ${r.issue_description}`,
                 created_at: r.created_at,
@@ -212,6 +221,7 @@ exports.getAdminNotifications = async (req, res) => {
                 id: `admin-maint-${a.alert_id}`,
                 type: isEmergency ? 'error' : 'warning',
                 category: 'MAINTENANCE',
+                data_id: a.alert_id,
                 title: isEmergency ? `🚨 [ฉุกเฉิน] รถมีปัญหา!` : (alertTypeLabel[a.alert_type] || 'แจ้งเตือนบำรุงรักษา'),
                 body: isEmergency 
                     ? `ทะเบียน ${a.vehicle?.license_plate || 'ไม่ระบุ'} แจ้งเหตุฉุกเฉิน กรุณาตรวจสอบด่วน`

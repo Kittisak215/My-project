@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Info,
   XCircle,
+  Settings,
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import useAuthStore from "../store/authStore";
@@ -23,6 +24,7 @@ import clsx from "clsx";
 const navItems = [
   { to: "/admin", label: "หน้าหลัก", icon: LayoutDashboard, end: true },
   { to: "/admin/vehicles", label: "ยานพาหนะ", icon: Car },
+  { to: "/admin/vehicle-types", label: "ตั้งค่าประเภทรถ", icon: Settings },
   { to: "/admin/drivers", label: "ผู้รับผิดชอบ (พขร.)", icon: Users },
   { to: "/admin/garages", label: "ศูนย์บริการ/อู่", icon: Building2 },
   { to: "/admin/repairs", label: "คำร้องซ่อม", icon: Wrench },
@@ -186,9 +188,9 @@ function AdminNotificationBell() {
                 onClick={() => {
                   setOpen(false);
                   if (n.category === "REPAIR_STATUS")
-                    navigate("/admin/repairs");
+                    navigate("/admin/repairs", { state: { openRequestId: n.data_id } });
                   else if (n.category === "MAINTENANCE")
-                    navigate("/admin/alerts");
+                    navigate("/admin/alerts", { state: { openAlertId: n.data_id } });
                 }}
                 className={clsx(
                   "p-3.5 flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer",

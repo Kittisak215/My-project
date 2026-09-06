@@ -9,7 +9,14 @@ exports.adminDashboard = async (req, res) => {
             prisma.maintenanceAlert.groupBy({ by: ['alert_type'], where: { is_resolved: false }, _count: { alert_type: true } }),
             prisma.maintenanceAlert.findMany({
                 where: { is_resolved: false },
-                include: { vehicle: { include: { driver: true } } },
+                include: { 
+                    vehicle: { 
+                        include: { 
+                            driver: true,
+                            mileageLogs: { orderBy: [{ record_date: 'desc' }, { mileage_id: 'desc' }], take: 1 }
+                        } 
+                    } 
+                },
                 orderBy: { alert_id: 'desc' }, take: 10,
             }),
             prisma.repairRequest.findMany({
@@ -31,6 +38,19 @@ exports.adminDashboard = async (req, res) => {
         const totalPendingRepairs = (repairStats.PENDING || 0) + (repairStats.IN_PROGRESS || 0) + (repairStats.AWAITING_APPROVAL || 0);
         const totalAlerts = Object.values(alertStats).reduce((sum, count) => sum + count, 0);
 
+        // Enrich maintenance alerts with calculated status
+        const enrichedMaintenanceAlerts = maintenanceAlerts.map(a => {
+            const currentMileage = a.vehicle?.mileageLogs?.[0]?.mileage_end || 0;
+            const vehicle = a.vehicle ? { ...a.vehicle, current_mileage: currentMileage } : null;
+            let status = 'UPCOMING';
+            if (a.is_resolved) {
+                status = 'DONE';
+            } else if (currentMileage >= a.next_service_mileage) {
+                status = 'OVERDUE';
+            }
+            return { ...a, vehicle, status };
+        });
+
         res.json({
             stats: { 
                 totalVehicles, 
@@ -41,7 +61,7 @@ exports.adminDashboard = async (req, res) => {
                 alertBreakdown: alertStats,
                 monthlyExpense: monthlyExpenseAgg._sum.total_cost || 0 
             },
-            maintenanceAlerts,
+            maintenanceAlerts: enrichedMaintenanceAlerts,
             recentRepairs,
         });
     } catch (err) { res.status(500).json({ message: err.message }); }
@@ -172,7 +192,7 @@ exports.expenseReport = async (req, res) => {
             prisma.repairRequest.count({ where }),
             prisma.repairRequest.aggregate({
                 where,
-                _sum: { total_cost: true },
+                _sum: { total_cost: true, parts_cost: true, labor_cost: true },
                 _avg: { total_cost: true },
                 _max: { total_cost: true }
             }),
@@ -188,6 +208,8 @@ exports.expenseReport = async (req, res) => {
             data,
             total,
             totalAmount: Number(agg._sum.total_cost || 0),
+            totalPartsCost: Number(agg._sum.parts_cost || 0),
+            totalLaborCost: Number(agg._sum.labor_cost || 0),
             avgAmount: Number(agg._avg.total_cost || 0),
             maxAmount: Number(agg._max.total_cost || 0),
             page: pageNum,

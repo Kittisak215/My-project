@@ -32,6 +32,8 @@ const navItems = [
 // คอมโพเนนต์กระดิ่งแจ้งเตือน
 // ──────────────────────────────────────────────────
 function NotificationBell() {
+  const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -100,11 +102,27 @@ function NotificationBell() {
         });
       });
 
+      socket.on("maintenance_remind", (payload) => {
+        if (!payload.driverId || payload.driverId === user?.driver_id) {
+          fetchNotifications();
+          import("react-toastify").then(({ toast }) => {
+            toast.warn(
+              payload.message ||
+                `⚠️ ผู้ดูแลระบบแจ้งเตือนซ้ำ: รถทะเบียน ${payload.licensePlate} ถึงรอบ${payload.typeName}แล้ว กรุณาดำเนินการ`,
+              {
+                position: "bottom-right",
+                autoClose: 7000,
+              },
+            );
+          });
+        }
+      });
+
       return () => {
         socket.disconnect();
       };
     });
-  }, [fetchNotifications]);
+  }, [fetchNotifications, user?.driver_id]);
 
   // ปิด dropdown เมื่อคลิกข้างนอก
   useEffect(() => {
@@ -194,8 +212,18 @@ function NotificationBell() {
             {notifications.map((n) => (
               <div
                 key={n.id}
+                onClick={() => {
+                  setOpen(false);
+                  if (n.category === "REPAIR_STATUS") {
+                    navigate("/driver/history", { state: { openRequestId: n.data_id } });
+                  } else if (n.category === "MAINTENANCE") {
+                    navigate("/driver/repair");
+                  } else if (n.category === "MILEAGE_REMINDER") {
+                    navigate("/driver/mileage");
+                  }
+                }}
                 className={clsx(
-                  "p-3.5 flex items-start gap-3 hover:bg-slate-50 transition-colors",
+                  "p-3.5 flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer",
                   bgMap[n.type] || "bg-white",
                 )}
               >
@@ -214,6 +242,19 @@ function NotificationBell() {
                         "th-TH",
                       )}
                     </p>
+                  )}
+                  {n.category === "MAINTENANCE" && (
+                    <a
+                      href="/driver/repair"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpen(false);
+                        navigate("/driver/repair");
+                      }}
+                      className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-[#8A1ABA] hover:underline"
+                    >
+                      แจ้งซ่อมบำรุงรักษาตอนนี้ <ChevronRight size={11} />
+                    </a>
                   )}
                   {n.category === "MILEAGE_REMINDER" && (
                     <a

@@ -73,7 +73,7 @@ export default function FleetRegistryPage() {
           <p className="text-xs md:text-sm text-slate-500 font-medium mb-1">
             สถานะพร้อมใช้งาน
           </p>
-          <p className="text-xl md:text-3xl font-bold text-green-600">
+          <p className="text-xl md:text-3xl font-bold text-slate-800">
             {readyCount}{" "}
             <span className="text-xs md:text-sm text-slate-500">คัน</span>
           </p>
@@ -82,7 +82,7 @@ export default function FleetRegistryPage() {
           <p className="text-xs md:text-sm text-slate-500 font-medium mb-1">
             อัตราพร้อมใช้งาน
           </p>
-          <p className="text-xl md:text-3xl font-bold text-blue-600">
+          <p className="text-xl md:text-3xl font-bold text-slate-800">
             {total > 0 ? Math.round((readyCount / total) * 100) : 0}%
           </p>
         </div>

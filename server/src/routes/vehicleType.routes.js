@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const c = require('../controllers/alert.controller');
+const c = require('../controllers/vehicleType.controller');
 const { authMiddleware, requireRole } = require('../middleware/auth.middleware');
+
 router.use(authMiddleware);
-router.get('/forecast', c.getForecast);
+
 router.get('/', c.getAll);
 router.post('/', requireRole('ADMIN'), c.create);
 router.put('/:id', requireRole('ADMIN'), c.update);
-router.post('/:id/remind', requireRole('ADMIN'), c.remind);
-router.post('/recalculate', requireRole('ADMIN'), c.recalculate);
+router.delete('/:id', requireRole('ADMIN'), c.remove);
+
 module.exports = router;

@@ -16,10 +16,10 @@ async function main() {
     // Vehicle Types
     // ============================================
     const types = await Promise.all([
-        prisma.vehicleType.upsert({ where: { type_id: 1 }, update: {}, create: { type_name: 'รถตู้ (Van)', oil_change_interval_km: 10000, tire_change_interval_km: 50000 } }),
-        prisma.vehicleType.upsert({ where: { type_id: 2 }, update: {}, create: { type_name: 'รถกระบะ (Pickup)', oil_change_interval_km: 7000, tire_change_interval_km: 40000 } }),
-        prisma.vehicleType.upsert({ where: { type_id: 3 }, update: {}, create: { type_name: 'รถเก๋ง (Sedan)', oil_change_interval_km: 10000, tire_change_interval_km: 40000 } }),
-        prisma.vehicleType.upsert({ where: { type_id: 4 }, update: {}, create: { type_name: 'รถบัส (Bus)', oil_change_interval_km: 15000, tire_change_interval_km: 60000 } }),
+        prisma.vehicleType.upsert({ where: { type_id: 1 }, update: {}, create: { type_name: 'รถตู้ (Van)',     oil_interval_mineral_km: 5000, oil_interval_semi_synthetic_km: 7000, oil_interval_fully_synthetic_km: 10000, tire_change_interval_km: 50000 } }),
+        prisma.vehicleType.upsert({ where: { type_id: 2 }, update: {}, create: { type_name: 'รถกระบะ (Pickup)', oil_interval_mineral_km: 5000, oil_interval_semi_synthetic_km: 7000, oil_interval_fully_synthetic_km: 10000, tire_change_interval_km: 40000 } }),
+        prisma.vehicleType.upsert({ where: { type_id: 3 }, update: {}, create: { type_name: 'รถเก๋ง (Sedan)',   oil_interval_mineral_km: 5000, oil_interval_semi_synthetic_km: 7000, oil_interval_fully_synthetic_km: 10000, tire_change_interval_km: 40000 } }),
+        prisma.vehicleType.upsert({ where: { type_id: 4 }, update: {}, create: { type_name: 'รถบัส (Bus)',      oil_interval_mineral_km: 5000, oil_interval_semi_synthetic_km: 8000, oil_interval_fully_synthetic_km: 15000, tire_change_interval_km: 60000 } }),
     ]);
     console.log(`✅ Created ${types.length} vehicle types`);
 
@@ -71,7 +71,7 @@ async function main() {
         create: {
             license_plate: 'กข 1234', type_id: types[0].type_id, driver_id: driver1.driver_id,
             brand: 'Toyota', model: 'HiAce', year: 2020, color: 'ขาว',
-            status: 'READY', oil_change_interval_km: 10000, tire_change_interval_km: 50000,
+            status: 'READY', tire_change_interval_km: 50000,
         },
     });
     const vehicle2 = await prisma.vehicle.upsert({
@@ -79,7 +79,7 @@ async function main() {
         create: {
             license_plate: 'คง 5678', type_id: types[1].type_id, driver_id: driver2.driver_id,
             brand: 'Isuzu', model: 'D-MAX', year: 2019, color: 'เทา',
-            status: 'READY', oil_change_interval_km: 5000, tire_change_interval_km: 40000,
+            status: 'READY', tire_change_interval_km: 40000,
         },
     });
     console.log(`✅ Created 2 vehicles`);

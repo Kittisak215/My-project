@@ -108,7 +108,16 @@ const MaintenanceForecastCard = () => {
                                                 {isOil ? <Droplet size={14} /> : <Disc size={14} />}
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-xs font-semibold text-slate-700">{isOil ? 'น้ำมันเครื่อง' : 'ยางรถยนต์'}</span>
+                                                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                                                    {isOil ? 'น้ำมันเครื่อง' : 'ยางรถยนต์'}
+                                                    {isOil && item.oil_grade_last_used && (
+                                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 font-medium">
+                                                            {item.oil_grade_last_used === 'MINERAL' && 'ธรรมดา'}
+                                                            {item.oil_grade_last_used === 'SEMI_SYNTHETIC' && 'กึ่งสังเคราะห์'}
+                                                            {item.oil_grade_last_used === 'FULLY_SYNTHETIC' && 'สังเคราะห์แท้'}
+                                                        </span>
+                                                    )}
+                                                </span>
                                                 <span className={clsx("text-[10px] font-medium flex items-center gap-1", status.color)}>
                                                     {status.icon} {status.text}
                                                 </span>

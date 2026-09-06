@@ -13,11 +13,13 @@ datasource db {
 // ประเภทยานพาหนะ
 // =============================================
 model VehicleType {
-  type_id                 Int       @id @default(autoincrement())
-  type_name               String    @db.VarChar(100)
-  oil_change_interval_km  Int       @default(10000)
-  tire_change_interval_km Int       @default(50000)
-  vehicles                Vehicle[]
+  type_id                         Int       @id @default(autoincrement())
+  type_name                       String    @db.VarChar(100)
+  oil_interval_mineral_km         Int       @default(5000)   // น้ำมันธรรมดา
+  oil_interval_semi_synthetic_km  Int       @default(7000)   // กึ่งสังเคราะห์
+  oil_interval_fully_synthetic_km Int       @default(10000)  // สังเคราะห์แท้
+  tire_change_interval_km         Int       @default(50000)
+  vehicles                        Vehicle[]
 
   @@map("vehicle_types")
 }
@@ -77,8 +79,10 @@ model Vehicle {
   year                    Int?
   color                   String?            @db.VarChar(50)
   status                  VehicleStatus      @default(READY)
-  oil_change_interval_km  Int?
-  tire_change_interval_km Int?
+  oil_interval_mineral_km         Int?     // override ค่า VehicleType สำหรับรถคันนี้โดยเฉพาะ
+  oil_interval_semi_synthetic_km  Int?
+  oil_interval_fully_synthetic_km Int?
+  tire_change_interval_km         Int?
   is_active               Boolean            @default(true)
   created_at              DateTime           @default(now())
   mileageLogs             MileageLog[]
@@ -161,9 +165,12 @@ model RepairRequest {
   repair_end_date        DateTime?    @db.Date
   repair_detail          String?      @db.Text
   receipt_image          String?      @db.VarChar(500)
+  parts_cost             Decimal?     @db.Decimal(10, 2)
+  labor_cost             Decimal?     @db.Decimal(10, 2)
   total_cost             Decimal?     @db.Decimal(10, 2)
   note                   String?      @db.Text
   oil_grade              OilGrade?    // เกรดน้ำมันเครื่องที่ใช้ (กรอกเฉพาะตอนซ่อมเสร็จและมีการเปลี่ยนถ่ายน้ำมัน)
+  is_tire_changed        Boolean?     @default(false) // มีการเปลี่ยนยาง 4 เส้นเพื่อรีเซ็ตรอบหรือไม่
   created_at             DateTime     @default(now())
 
   @@map("repair_requests")
@@ -201,6 +208,8 @@ model MaintenanceAlert {
   last_service_mileage Int
   next_service_mileage Int
   is_resolved          Boolean   @default(false)
+  remind_count         Int       @default(0)
+  reminded_at          DateTime?
 
   @@map("maintenance_alerts")
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Search, X, Bell, AlertTriangle } from "lucide-react";
+import { Search, X, Bell, AlertTriangle, CheckCircle2 } from "lucide-react";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
 import Skeleton from "../../components/Skeleton";
@@ -11,6 +11,10 @@ export default function AlertsPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("");
   const [activeTab, setActiveTab] = useState("ACTIVE");
+  const [resolveModalAlert, setResolveModalAlert] = useState(null);
+  const [serviceMileageInput, setServiceMileageInput] = useState("");
+  const [resolving, setResolving] = useState(false);
+  const [remindingId, setRemindingId] = useState(null);
 
   const displayedAlerts = alerts.filter((a) =>
     activeTab === "ACTIVE" ? a.status !== "DONE" : a.status === "DONE"
@@ -33,10 +37,45 @@ export default function AlertsPage() {
     fetchAlerts();
   }, [fetchAlerts]);
 
-  const notifyDriver = (vehicle) => {
-    // ในระบบจริงอาจจะยิง API ไปที่ /notifications/send หรือ Line Notify
-    const driverName = vehicle?.driver?.full_name || "คนขับ";
-    toast.success(`ส่งการแจ้งเตือนไปยัง ${driverName} สำเร็จ`);
+  const handleRemindDriver = async (alert) => {
+    const driverName = alert.vehicle?.driver?.full_name || "คนขับ";
+    setRemindingId(alert.alert_id);
+    try {
+      const res = await api.post(`/alerts/${alert.alert_id}/remind`);
+      toast.success(res.data?.message || `ส่งการแจ้งเตือนซ้ำไปยัง ${driverName} สำเร็จ`);
+      fetchAlerts();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "เกิดข้อผิดพลาดในการส่งแจ้งเตือนซ้ำ");
+    } finally {
+      setRemindingId(null);
+    }
+  };
+
+  const openResolveModal = (alert) => {
+    setResolveModalAlert(alert);
+    setServiceMileageInput(
+      alert.vehicle?.current_mileage || alert.next_service_mileage || ""
+    );
+  };
+
+  const handleConfirmResolve = async () => {
+    if (!resolveModalAlert) return;
+    setResolving(true);
+    try {
+      await api.put(`/alerts/${resolveModalAlert.alert_id}`, {
+        is_resolved: true,
+        service_mileage: serviceMileageInput ? parseInt(serviceMileageInput) : undefined,
+      });
+      toast.success(
+        `ปิดการแจ้งเตือนรถ ${resolveModalAlert.vehicle?.license_plate} เรียบร้อยแล้ว (บันทึกลงประวัติ)`
+      );
+      setResolveModalAlert(null);
+      fetchAlerts();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "เกิดข้อผิดพลาดในการบันทึก");
+    } finally {
+      setResolving(false);
+    }
   };
 
   const alertTypeMap = {
@@ -221,15 +260,46 @@ export default function AlertsPage() {
                   </div>
                 </div>
                 {a.status !== "DONE" && (
-                  <div className="mt-3 flex flex-col items-center gap-1">
-                    <span className="text-[10px] text-slate-400">
-                      ระบบส่งแจ้งเตือนอัตโนมัติแล้ว
-                    </span>
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
                     <button
-                      onClick={() => notifyDriver(a.vehicle)}
-                      className="w-full flex items-center justify-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 py-2 rounded-lg text-xs font-medium transition-colors"
+                      onClick={() => handleRemindDriver(a)}
+                      disabled={remindingId === a.alert_id}
+                      className={clsx(
+                        "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all border cursor-pointer active:scale-95 shadow-2xs",
+                        a.remind_count > 0
+                          ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200",
+                        remindingId === a.alert_id && "opacity-60 cursor-not-allowed",
+                      )}
+                      title={
+                        a.remind_count > 0
+                          ? `ส่งเตือนซ้ำแล้ว ${a.remind_count} ครั้ง`
+                          : "ส่งการแจ้งเตือนซ้ำไปยังหน้าจอคนขับ"
+                      }
                     >
-                      <Bell size={14} /> เตือนซ้ำ
+                      <Bell
+                        size={13}
+                        className={clsx(
+                          remindingId === a.alert_id
+                            ? "animate-spin text-indigo-600"
+                            : a.remind_count > 0
+                              ? "text-amber-600"
+                              : "text-slate-400",
+                        )}
+                      />
+                      <span>{remindingId === a.alert_id ? "กำลังส่ง..." : "เตือนซ้ำ"}</span>
+                      {a.remind_count > 0 && (
+                        <span className="inline-flex items-center justify-center px-1.5 py-0.2 bg-amber-200/90 text-amber-900 rounded-full text-[10px] font-bold">
+                          {a.remind_count}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => openResolveModal(a)}
+                      className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-xs transition-all shadow-2xs active:scale-95 cursor-pointer"
+                    >
+                      <CheckCircle2 size={13} />
+                      <span>จัดการแล้ว</span>
                     </button>
                   </div>
                 )}
@@ -342,19 +412,54 @@ export default function AlertsPage() {
                   </td>
                   <td className="px-6 py-4 text-center">
                     {a.status !== "DONE" ? (
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-[10px] text-slate-400 leading-none">
-                          ระบบแจ้งอัตโนมัติแล้ว
-                        </span>
+                      <div className="inline-flex items-center justify-center gap-2">
                         <button
-                          onClick={() => notifyDriver(a.vehicle)}
-                          className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 px-3 py-1.5 rounded text-xs font-medium transition-colors"
+                          onClick={() => handleRemindDriver(a)}
+                          disabled={remindingId === a.alert_id}
+                          className={clsx(
+                            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer shadow-2xs active:scale-95",
+                            a.remind_count > 0
+                              ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 hover:border-amber-300"
+                              : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200",
+                            remindingId === a.alert_id && "opacity-60 cursor-not-allowed",
+                          )}
+                          title={
+                            a.remind_count > 0
+                              ? `ส่งเตือนซ้ำแล้ว ${a.remind_count} ครั้ง (คลิกเพื่อส่งซ้ำอีก)`
+                              : "ส่งการแจ้งเตือนซ้ำไปยังหน้าจอคนขับ"
+                          }
                         >
-                          <Bell size={14} /> เตือนซ้ำ
+                          <Bell
+                            size={13}
+                            className={clsx(
+                              remindingId === a.alert_id
+                                ? "animate-spin text-indigo-600"
+                                : a.remind_count > 0
+                                  ? "text-amber-600"
+                                  : "text-slate-400",
+                            )}
+                          />
+                          <span>{remindingId === a.alert_id ? "กำลังส่ง..." : "เตือนซ้ำ"}</span>
+                          {a.remind_count > 0 && (
+                            <span className="inline-flex items-center justify-center px-1.5 py-0.2 bg-amber-200/90 text-amber-900 rounded-full text-[10px] font-bold">
+                              {a.remind_count}
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => openResolveModal(a)}
+                          className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-all shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer"
+                          title="บันทึกและปิดการแจ้งเตือนนี้"
+                        >
+                          <CheckCircle2 size={13} />
+                          <span>จัดการแล้ว</span>
                         </button>
                       </div>
                     ) : (
-                      <span className="text-slate-400 text-xs">-</span>
+                      <span className="inline-flex items-center gap-1.5 text-emerald-700 text-xs font-semibold bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/80">
+                        <CheckCircle2 size={13} className="text-emerald-600" />
+                        <span>ดำเนินการแล้ว</span>
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -363,6 +468,79 @@ export default function AlertsPage() {
           </table>
         </div>
       </div>
+
+      {/* Resolve Confirmation Modal */}
+      {resolveModalAlert && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative border border-slate-100">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+              <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                <CheckCircle2 size={18} className="text-emerald-600" />
+                บันทึกดำเนินการบำรุงรักษาแล้ว
+              </h3>
+              <button
+                onClick={() => setResolveModalAlert(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500">ทะเบียนรถ:</span>
+                  <span className="font-bold text-slate-800">{resolveModalAlert.vehicle?.license_plate}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500">รายการ:</span>
+                  <span className="font-semibold text-purple-700">{alertTypeMap[resolveModalAlert.alert_type] || resolveModalAlert.alert_type}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500">กำหนดรอบเดิม:</span>
+                  <span className="text-slate-700 font-medium">{(resolveModalAlert.next_service_mileage || 0).toLocaleString()} กม.</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  เลขไมล์ที่ดำเนินการเสร็จสิ้น (กม.) *
+                </label>
+                <input
+                  type="number"
+                  value={serviceMileageInput}
+                  onChange={(e) => setServiceMileageInput(e.target.value)}
+                  placeholder="เช่น 15950"
+                  className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA] bg-white font-semibold text-slate-800"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  เลขไมล์นี้จะถูกบันทึกไว้ในประวัติและนำไปใช้คำนวณรอบบำรุงรักษาครั้งถัดไป
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={resolving}
+                  onClick={() => setResolveModalAlert(null)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  disabled={resolving}
+                  onClick={handleConfirmResolve}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm hover:shadow cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 size={15} />
+                  <span>{resolving ? "กำลังบันทึก..." : "ยืนยันปิดแจ้งเตือน"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
