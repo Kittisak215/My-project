@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   Car,
+  AlertTriangle,
 } from "lucide-react";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
@@ -148,6 +149,7 @@ export default function DriversPage() {
   const [credential, setCredential] = useState(null); // สำหรับแสดงกล่องรหัสผ่าน
   const [showPassword, setShowPassword] = useState(false);
   const [selectedDriverVehicles, setSelectedDriverVehicles] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const {
     register,
     handleSubmit,
@@ -193,21 +195,17 @@ export default function DriversPage() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id, name) => {
-    if (
-      window.confirm(
-        `คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลของ "${name}" ถาวร?\n(หมายเหตุ: การลบนี้จะไม่สามารถเรียกคืนได้ และทำได้เฉพาะบัญชีที่ไม่มีข้อมูลผูกมัด)`,
-      )
-    ) {
-      try {
-        await api.delete(`/drivers/${id}/hard`);
-        toast.success("ลบข้อมูลคนขับถาวรสำเร็จ");
-        fetchDrivers();
-      } catch (err) {
-        toast.error(
-          err.response?.data?.message || "เกิดข้อผิดพลาดในการลบข้อมูล",
-        );
-      }
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await api.delete(`/drivers/${deleteTarget.driver_id}/hard`);
+      toast.success("ลบข้อมูลคนขับถาวรสำเร็จ");
+      setDeleteTarget(null);
+      fetchDrivers();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "เกิดข้อผิดพลาดในการลบข้อมูล",
+      );
     }
   };
 
@@ -351,7 +349,7 @@ export default function DriversPage() {
                     แก้ไข
                   </button>
                   <button
-                    onClick={() => handleDelete(d.driver_id, d.full_name)}
+                    onClick={() => setDeleteTarget(d)}
                     className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200"
                     title="ลบถาวร"
                   >
@@ -464,7 +462,7 @@ export default function DriversPage() {
                         แก้ไข
                       </button>
                       <button
-                        onClick={() => handleDelete(d.driver_id, d.full_name)}
+                        onClick={() => setDeleteTarget(d)}
                         className="px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200 ml-1"
                       >
                         ลบทิ้ง
@@ -803,6 +801,45 @@ export default function DriversPage() {
                 className="px-5 py-2 bg-[#8A1ABA] hover:bg-[#72159c] text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow transition-all cursor-pointer active:scale-95"
               >
                 ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {deleteTarget && (
+        <Modal
+          title="ยืนยันการลบข้อมูลคนขับถาวร"
+          onClose={() => setDeleteTarget(null)}
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3.5 bg-red-50 rounded-xl text-red-700 border border-red-100">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-slate-800">คุณต้องการลบข้อมูลคนขับนี้ถาวรใช่หรือไม่?</p>
+                <p className="text-xs text-slate-600 mt-1">
+                  คนขับ: <span className="font-bold text-red-600">{deleteTarget.full_name}</span> ({deleteTarget.phone})
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              * ระบบจะอนุญาตให้ลบได้เฉพาะคนขับที่ยังไม่มีรถผูกมัด และยังไม่มีประวัติการบันทึกเลขไมล์หรือประวัติการแจ้งซ่อมในระบบ หากมีประวัติดังกล่าวแนะนำให้แก้ไขสถานะเป็น &quot;พ้นสภาพ&quot; แทน
+            </p>
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5 shadow-sm"
+              >
+                <Trash2 size={16} />
+                ยืนยันการลบ
               </button>
             </div>
           </div>

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
 import clsx from "clsx";
-import { Settings, Plus, Edit2, Trash2, X } from "lucide-react";
+import { Settings, Plus, Edit2, Trash2, X, AlertTriangle } from "lucide-react";
 
 const Modal = ({ title, onClose, children }) => (
   <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -30,6 +30,7 @@ export default function VehicleTypesPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   
   const {
     register,
@@ -87,11 +88,12 @@ export default function VehicleTypesPage() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("คุณต้องการลบประเภทรถนี้ใช่หรือไม่?")) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await api.delete(`/vehicle-types/${id}`);
+      await api.delete(`/vehicle-types/${deleteTarget.type_id}`);
       toast.success("ลบประเภทรถสำเร็จ");
+      setDeleteTarget(null);
       fetchTypes();
     } catch (e) {
       toast.error(e.response?.data?.message || "ไม่สามารถลบได้ (อาจมีรถที่ใช้ประเภทนี้อยู่)");
@@ -162,7 +164,7 @@ export default function VehicleTypesPage() {
                           แก้ไข
                         </button>
                         <button
-                          onClick={() => handleDelete(type.type_id)}
+                          onClick={() => setDeleteTarget(type)}
                           className="px-3 py-1 text-red-500 border border-red-300 hover:border-red-500 hover:bg-red-50 rounded-md font-medium transition-colors text-sm"
                         >
                           ลบทิ้ง
@@ -303,6 +305,45 @@ export default function VehicleTypesPage() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {deleteTarget && (
+        <Modal
+          title="ยืนยันการลบประเภทรถ"
+          onClose={() => setDeleteTarget(null)}
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3.5 bg-red-50 rounded-xl text-red-700 border border-red-100">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-slate-800">คุณต้องการลบประเภทรถนี้ใช่หรือไม่?</p>
+                <p className="text-xs text-slate-600 mt-1">
+                  ประเภทรถ: <span className="font-bold text-red-600">{deleteTarget.type_name}</span>
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              * ระบบจะอนุญาตให้ลบได้เฉพาะประเภทรถที่ยังไม่มียานพาหนะใด ๆ ในระบบเชื่อมโยงอยู่เท่านั้น หากมีรถผูกอยู่จะไม่สามารถลบได้
+            </p>
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5 shadow-sm"
+              >
+                <Trash2 size={16} />
+                ยืนยันการลบ
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

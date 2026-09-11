@@ -185,10 +185,22 @@ exports.hardDelete = async (req, res) => {
         // Check if there are related records that shouldn't be deleted
         const driver = await prisma.driver.findUnique({
             where: { driver_id: driverId },
-            include: { vehicles: true }
+            include: { 
+                vehicles: { select: { vehicle_id: true }, take: 1 },
+                mileageLogs: { select: { mileage_id: true }, take: 1 },
+                repairs: { select: { request_id: true }, take: 1 }
+            }
         });
         
         if (!driver) return res.status(404).json({ message: 'ไม่พบข้อมูลคนขับ' });
+
+        if (driver.vehicles.length > 0) {
+            return res.status(400).json({ message: 'ไม่สามารถลบได้ เนื่องจากคนขับนี้ยังมียานพาหนะที่รับผิดชอบอยู่ (กรุณาปลดรถออกก่อน)' });
+        }
+
+        if (driver.mileageLogs.length > 0 || driver.repairs.length > 0) {
+            return res.status(400).json({ message: 'ไม่สามารถลบคนขับนี้ได้ เนื่องจากมีประวัติบันทึกเลขไมล์หรือประวัติการแจ้งซ่อมในระบบแล้ว (แนะนำให้ปรับสถานะเป็นพ้นสภาพแทน)' });
+        }
         
         // Hard delete user first due to foreign key
         await prisma.user.deleteMany({ where: { driver_id: driverId } });
@@ -197,6 +209,6 @@ exports.hardDelete = async (req, res) => {
         
         res.json({ message: 'ลบข้อมูลคนขับถาวรสำเร็จ' });
     } catch (err) { 
-        res.status(400).json({ message: 'ไม่สามารถลบถาวรได้ อาจมีประวัติผูกอยู่กับระบบ' }); 
+        res.status(400).json({ message: err.message || 'ไม่สามารถลบถาวรได้ อาจมีประวัติผูกอยู่กับระบบ' }); 
     }
 };
