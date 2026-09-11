@@ -97,10 +97,24 @@ exports.update = async (req, res) => {
 exports.remove = async (req, res) => {
     try {
         const garageId = parseInt(req.params.id);
-        await prisma.garage.update({
-            where: { garage_id: garageId },
-            data: { is_active: false }
+
+        // Check if there are repair requests linked to this garage
+        const repairsCount = await prisma.repairRequest.count({
+            where: { garage_id: garageId }
         });
-        res.json({ message: 'Garage deactivated' });
-    } catch (err) { res.status(400).json({ message: err.message }); }
+
+        if (repairsCount > 0) {
+            return res.status(400).json({ 
+                message: 'ไม่สามารถลบอู่/ศูนย์บริการนี้ได้ เนื่องจากมีประวัติการส่งซ่อมในระบบแล้ว (แนะนำให้แก้ไขสถานะเป็นระงับการติดต่อแทน)' 
+            });
+        }
+
+        await prisma.garage.delete({
+            where: { garage_id: garageId }
+        });
+
+        res.json({ message: 'ลบข้อมูลอู่/ศูนย์บริการสำเร็จ' });
+    } catch (err) { 
+        res.status(400).json({ message: err.message || 'เกิดข้อผิดพลาดในการลบข้อมูล' }); 
+    }
 };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Search, X } from "lucide-react";
+import { Plus, Search, X, Trash2, AlertTriangle } from "lucide-react";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
 import { useForm } from "react-hook-form";
@@ -44,6 +44,7 @@ export default function GaragesPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const {
     register,
     handleSubmit,
@@ -105,6 +106,20 @@ export default function GaragesPage() {
       fetchGarages();
     } catch (err) {
       toast.error(err.response?.data?.message || "เกิดข้อผิดพลาด");
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await api.delete(`/garages/${deleteTarget.garage_id}`);
+      toast.success("ลบข้อมูลอู่/ศูนย์บริการสำเร็จ");
+      setDeleteTarget(null);
+      fetchGarages();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "เกิดข้อผิดพลาดในการลบข้อมูล",
+      );
     }
   };
 
@@ -216,6 +231,13 @@ export default function GaragesPage() {
                 >
                   แก้ไข
                 </button>
+                <button
+                  onClick={() => setDeleteTarget(g)}
+                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200"
+                  title="ลบทิ้ง"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
             </div>
           </div>
@@ -317,12 +339,20 @@ export default function GaragesPage() {
                     <StatusBadge isActive={g.is_active} />
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <button
-                      onClick={() => openEdit(g)}
-                      className="px-3.5 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200"
-                    >
-                      แก้ไข
-                    </button>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        onClick={() => openEdit(g)}
+                        className="px-3.5 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200"
+                      >
+                        แก้ไข
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(g)}
+                        className="px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200"
+                      >
+                        ลบทิ้ง
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -552,6 +582,48 @@ export default function GaragesPage() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {deleteTarget && (
+        <Modal
+          title="ยืนยันการลบอู่/ศูนย์บริการ"
+          onClose={() => setDeleteTarget(null)}
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3.5 bg-red-50 rounded-xl text-red-700 border border-red-100">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-slate-800">
+                  คุณต้องการลบข้อมูลอู่/ศูนย์บริการนี้ใช่หรือไม่?
+                </p>
+                <p className="text-xs text-slate-600 mt-1">
+                  ชื่ออู่: <span className="font-bold text-red-600">{deleteTarget.garage_name}</span>
+                  {deleteTarget.phone && ` (${formatPhone(deleteTarget.phone)})`}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              * ระบบจะอนุญาตให้ลบได้เฉพาะอู่หรือศูนย์บริการที่ยังไม่มีประวัติการส่งซ่อมในระบบเท่านั้น หากมีประวัติการซ่อมแล้วแนะนำให้แก้ไขสถานะเป็น &quot;ระงับการติดต่อ&quot; แทน
+            </p>
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5 shadow-sm"
+              >
+                <Trash2 size={16} />
+                ยืนยันการลบ
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>
