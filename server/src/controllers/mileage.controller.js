@@ -38,7 +38,15 @@ exports.addLog = async (req, res) => {
             return res.status(400).json({ message: `เลขไมล์ต้องมากกว่าหรือเท่ากับ ${mileage_start} กม.` });
         }
 
-        const driverId = req.user.role === 'DRIVER' ? req.user.driver_id : parseInt(recorded_by);
+        let driverId = req.user.role === 'DRIVER' ? req.user.driver_id : parseInt(recorded_by);
+        if (!driverId || isNaN(driverId)) {
+            const v = await prisma.vehicle.findUnique({ where: { vehicle_id: vid }, select: { driver_id: true } });
+            driverId = v?.driver_id;
+        }
+        if (!driverId || isNaN(driverId)) {
+            const firstDriver = await prisma.driver.findFirst({ select: { driver_id: true } });
+            driverId = firstDriver?.driver_id;
+        }
 
         // Parse date: accept YYYY-MM-DD
         const parsedDate = record_date ? new Date(record_date) : new Date();

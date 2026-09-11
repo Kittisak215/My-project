@@ -19,6 +19,7 @@ import {
 import { useState, useEffect, useRef, useCallback } from "react";
 import useAuthStore from "../store/authStore";
 import api from "../lib/axios";
+import { getSocket } from "../lib/socket";
 import clsx from "clsx";
 
 const navItems = [
@@ -37,8 +38,19 @@ function AdminNotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [dismissedIds, setDismissedIds] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("admin_dismissed_notifications") || "[]");
+    } catch {
+      return [];
+    }
+  });
   const panelRef = useRef(null);
   const navigate = useNavigate();
+
+  const visibleNotifications = notifications.filter(
+    (n) => !dismissedIds.includes(n.id),
+  );
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -46,12 +58,22 @@ function AdminNotificationBell() {
       const res = await api.get("/notifications/admin");
       const data = res.data.notifications || [];
       setNotifications(data);
+
+      const dismissed = (() => {
+        try {
+          return JSON.parse(localStorage.getItem("admin_dismissed_notifications") || "[]");
+        } catch {
+          return [];
+        }
+      })();
+      const visible = data.filter((n) => !dismissed.includes(n.id));
+
       const lastRead = localStorage.getItem("admin_last_read");
       let count = 0;
-      if (!lastRead) count = data.length;
+      if (!lastRead) count = visible.length;
       else {
         const lastReadTime = new Date(lastRead).getTime();
-        count = data.filter(
+        count = visible.filter(
           (n) => new Date(n.created_at).getTime() > lastReadTime,
         ).length;
       }
@@ -62,6 +84,22 @@ function AdminNotificationBell() {
       setLoading(false);
     }
   }, []);
+
+  const handleDismiss = (e, id) => {
+    e.stopPropagation();
+    const updated = [...dismissedIds, id];
+    setDismissedIds(updated);
+    localStorage.setItem("admin_dismissed_notifications", JSON.stringify(updated));
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleDismissAll = (e) => {
+    e.stopPropagation();
+    const allIds = Array.from(new Set([...dismissedIds, ...notifications.map((n) => n.id)]));
+    setDismissedIds(allIds);
+    localStorage.setItem("admin_dismissed_notifications", JSON.stringify(allIds));
+    setUnreadCount(0);
+  };
 
   const handleToggle = () => {
     setOpen((prev) => {
@@ -76,24 +114,15 @@ function AdminNotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    let socketInstance;
-    import("socket.io-client").then(({ io }) => {
-      const socketUrl = import.meta.env.VITE_API_URL
-        ? import.meta.env.VITE_API_URL.replace(/\/api$/, "")
-        : "http://localhost:5001";
-      socketInstance = io(socketUrl, { withCredentials: true });
-      socketInstance.on("new_notification", () => {
-        fetchNotifications();
-        import("react-toastify").then(({ toast }) => {
-          toast.info("มีการแจ้งเตือนใหม่", {
-            position: "bottom-right",
-            autoClose: 3000,
-          });
-        });
-      });
-    });
+    const socket = getSocket();
+    const onNewNotification = () => {
+      fetchNotifications();
+    };
+
+    socket.on("new_notification", onNewNotification);
+
     return () => {
-      if (socketInstance) socketInstance.disconnect();
+      socket.off("new_notification", onNewNotification);
     };
   }, [fetchNotifications]);
 
@@ -159,21 +188,27 @@ function AdminNotificationBell() {
                 </span>
               )}
             </h3>
-            <button
-              onClick={() => setOpen(false)}
-              className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"
-            >
-              <X size={16} />
-            </button>
+            <div className="flex items-center gap-2">
+              {visibleNotifications.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleDismissAll}
+                  className="text-xs text-slate-400 hover:text-[#8A1ABA] font-medium transition-colors cursor-pointer px-2 py-1 rounded-lg hover:bg-slate-200/50"
+                  title="ล้างการแจ้งเตือนทั้งหมด"
+                >
+                  ล้างทั้งหมด
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="max-h-[420px] overflow-y-auto divide-y divide-slate-100">
-            {loading && notifications.length === 0 && (
+            {loading && visibleNotifications.length === 0 && (
               <div className="py-8 text-center text-slate-400 text-sm">
                 กำลังโหลด...
               </div>
             )}
-            {!loading && notifications.length === 0 && (
+            {!loading && visibleNotifications.length === 0 && (
               <div className="py-8 text-center text-slate-400 text-sm">
                 <CheckCircle
                   size={28}
@@ -182,7 +217,7 @@ function AdminNotificationBell() {
                 ไม่มีการแจ้งเตือน
               </div>
             )}
-            {notifications.map((n) => (
+            {visibleNotifications.map((n) => (
               <div
                 key={n.id}
                 onClick={() => {
@@ -193,15 +228,25 @@ function AdminNotificationBell() {
                     navigate("/admin/alerts", { state: { openAlertId: n.data_id } });
                 }}
                 className={clsx(
-                  "p-3.5 flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer",
+                  "p-3.5 flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer group",
                   bgMap[n.type] || "bg-white",
                 )}
               >
                 {iconMap[n.type] || iconMap.info}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 leading-snug truncate">
-                    {n.title}
-                  </p>
+                  <div className="flex items-start justify-between gap-1">
+                    <p className="text-sm font-semibold text-slate-800 leading-snug truncate">
+                      {n.title}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDismiss(e, n.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all shrink-0 -mr-1 -mt-0.5 cursor-pointer"
+                      title="ปิดการแจ้งเตือนนี้"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
                   <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
                     {n.body}
                   </p>

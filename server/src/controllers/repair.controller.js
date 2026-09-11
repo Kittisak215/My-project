@@ -13,10 +13,11 @@ const repairIncludes = {
 
 exports.getAll = async (req, res) => {
     try {
-        const { search, status, page = 1, limit = 10 } = req.query;
+        const { search, status, repair_type, page = 1, limit = 10 } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const where = {};
         if (status) where.status = status;
+        if (repair_type) where.repair_type = repair_type;
         if (search) {
             where.OR = [
                 { vehicle: { license_plate: { contains: search, mode: 'insensitive' } } },

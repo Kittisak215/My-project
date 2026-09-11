@@ -71,19 +71,28 @@ export default function VehiclesPage() {
   const limit = 10;
 
   const selectedTypeId = watch("type_id");
-  
+
   // Find the selected vehicle type object to get its defaults
-  const selectedTypeObj = vehicleTypes.find(t => t.type_id.toString() === selectedTypeId?.toString());
-  
+  const selectedTypeObj = vehicleTypes.find(
+    (t) => t.type_id.toString() === selectedTypeId?.toString(),
+  );
+
   // Fallback if not found (e.g. initial load or none selected)
-  const fallbackDefaults = { mineral: 5000, semi: 7000, fully: 10000, tire: 50000 };
-  
-  const currentDefaults = selectedTypeObj ? {
-    mineral: selectedTypeObj.oil_interval_mineral_km,
-    semi: selectedTypeObj.oil_interval_semi_synthetic_km,
-    fully: selectedTypeObj.oil_interval_fully_synthetic_km,
-    tire: selectedTypeObj.tire_change_interval_km
-  } : fallbackDefaults;
+  const fallbackDefaults = {
+    mineral: 5000,
+    semi: 7000,
+    fully: 10000,
+    tire: 50000,
+  };
+
+  const currentDefaults = selectedTypeObj
+    ? {
+        mineral: selectedTypeObj.oil_interval_mineral_km,
+        semi: selectedTypeObj.oil_interval_semi_synthetic_km,
+        fully: selectedTypeObj.oil_interval_fully_synthetic_km,
+        tire: selectedTypeObj.tire_change_interval_km,
+      }
+    : fallbackDefaults;
 
   const fetchVehicleTypes = async () => {
     try {
@@ -249,11 +258,16 @@ export default function VehiclesPage() {
                 <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-500">
                   <span>👤 {v.driver?.full_name || "ไม่ระบุ"}</span>
                   <span>
-                    น้ำมัน ({v.currentOilGradeLabel || "Fully"}): {v.currentOilInterval?.toLocaleString() || v.vehicleType?.oil_interval_fully_synthetic_km?.toLocaleString() || "-"}{" "}
+                    น้ำมัน ({v.currentOilGradeLabel || "Fully"}):{" "}
+                    {v.currentOilInterval?.toLocaleString() ||
+                      v.vehicleType?.oil_interval_fully_synthetic_km?.toLocaleString() ||
+                      "-"}{" "}
                     กม.
                   </span>
                   <span>
-                    ยาง: {v.vehicleType?.tire_change_interval_km?.toLocaleString() || "-"}{" "}
+                    ยาง:{" "}
+                    {v.vehicleType?.tire_change_interval_km?.toLocaleString() ||
+                      "-"}{" "}
                     กม.
                   </span>
                   <span className="font-semibold text-slate-700">
@@ -366,12 +380,13 @@ export default function VehiclesPage() {
                       <span className="text-slate-400 font-medium">
                         น้ำมัน:
                       </span>{" "}
-                      {v.currentOilInterval?.toLocaleString() || "-"}{" "}
-                      กม. ({v.currentOilGradeLabel})
+                      {v.currentOilInterval?.toLocaleString() || "-"} กม. (
+                      {v.currentOilGradeLabel})
                     </div>
                     <div className="text-slate-600">
                       <span className="text-slate-400 font-medium">ยาง:</span>{" "}
-                      {v.vehicleType?.tire_change_interval_km?.toLocaleString() || "-"}{" "}
+                      {v.vehicleType?.tire_change_interval_km?.toLocaleString() ||
+                        "-"}{" "}
                       กม.
                     </div>
                   </td>
@@ -460,9 +475,23 @@ export default function VehiclesPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium text-slate-700">
-                  ป้ายทะเบียน *
-                </label>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-sm font-medium text-slate-700">
+                    ป้ายทะเบียน *
+                  </label>
+                  <div className="group relative inline-block">
+                    <span className="cursor-help text-[11px] text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full w-4 h-4 inline-flex items-center justify-center font-bold transition-colors">
+                      i
+                    </span>
+                    <div className="pointer-events-none absolute top-full left-0 mt-2 hidden group-hover:block z-50 w-60 p-2.5 bg-slate-800 text-white text-[11px] rounded-lg shadow-xl leading-relaxed">
+                      <p className="font-semibold text-amber-300 mb-1">คำแนะนำป้ายทะเบียน</p>
+                      • เช่น <span className="bg-slate-700 px-1 py-0.5 rounded text-amber-200 font-mono">กง-2345</span><br />
+                      • กทม. ละเว้นชื่อจังหวัดได้<br />
+                      • ต่างจังหวัด เช่น <span className="bg-slate-700 px-1 py-0.5 rounded text-amber-200 font-mono">กข-1234 บุรีรัมย์</span>
+                      <div className="absolute bottom-full left-1 border-4 border-transparent border-b-slate-800" />
+                    </div>
+                  </div>
+                </div>
                 <input
                   {...register("license_plate", {
                     required: "ระบุป้ายทะเบียน",
@@ -479,13 +508,9 @@ export default function VehiclesPage() {
                       : "border-slate-300 focus:border-[#8A1ABA]",
                   )}
                 />
-                {errors.license_plate ? (
+                {errors.license_plate && (
                   <p className="text-xs text-red-500 mt-1">
                     {errors.license_plate.message}
-                  </p>
-                ) : (
-                  <p className="text-xs text-slate-500 mt-1">
-                    กทม. ละเว้นชื่อจังหวัดได้ เช่น กง-1234
                   </p>
                 )}
               </div>
@@ -498,8 +523,10 @@ export default function VehiclesPage() {
                   className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                 >
                   <option value="">เลือกประเภท</option>
-                  {vehicleTypes.map(vt => (
-                    <option key={vt.type_id} value={vt.type_id}>{vt.type_name}</option>
+                  {vehicleTypes.map((vt) => (
+                    <option key={vt.type_id} value={vt.type_id}>
+                      {vt.type_name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -510,16 +537,25 @@ export default function VehiclesPage() {
                 <input
                   {...register("brand", {
                     required: "กรุณาระบุยี่ห้อ",
-                    maxLength: { value: 50, message: "ยี่ห้อต้องไม่เกิน 50 ตัวอักษร" },
+                    maxLength: {
+                      value: 50,
+                      message: "ยี่ห้อต้องไม่เกิน 50 ตัวอักษร",
+                    },
                   })}
                   maxLength={50}
-                  placeholder="เช่น Toyota, Isuzu"
+                  placeholder="เช่น Toyota"
                   className={clsx(
                     "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
-                    errors.brand ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                    errors.brand
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-slate-300 focus:border-[#8A1ABA]",
                   )}
                 />
-                {errors.brand && <p className="text-xs text-red-500 mt-1">{errors.brand.message}</p>}
+                {errors.brand && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.brand.message}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">
@@ -528,31 +564,49 @@ export default function VehiclesPage() {
                 <input
                   {...register("model", {
                     required: "กรุณาระบุรุ่น",
-                    maxLength: { value: 50, message: "รุ่นต้องไม่เกิน 50 ตัวอักษร" },
+                    maxLength: {
+                      value: 50,
+                      message: "รุ่นต้องไม่เกิน 50 ตัวอักษร",
+                    },
                   })}
                   maxLength={50}
-                  placeholder="เช่น Commuter, D-MAX"
+                  placeholder="เช่น Commuter"
                   className={clsx(
                     "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
-                    errors.model ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                    errors.model
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-slate-300 focus:border-[#8A1ABA]",
                   )}
                 />
-                {errors.model && <p className="text-xs text-red-500 mt-1">{errors.model.message}</p>}
+                {errors.model && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.model.message}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">สี</label>
                 <input
                   {...register("color", {
-                    maxLength: { value: 50, message: "สีต้องไม่เกิน 50 ตัวอักษร" },
+                    maxLength: {
+                      value: 50,
+                      message: "สีต้องไม่เกิน 50 ตัวอักษร",
+                    },
                   })}
                   maxLength={50}
-                  placeholder="เช่น ขาว, เงิน, ดำ"
+                  placeholder="เช่น ขาว"
                   className={clsx(
                     "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
-                    errors.color ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                    errors.color
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-slate-300 focus:border-[#8A1ABA]",
                   )}
                 />
-                {errors.color && <p className="text-xs text-red-500 mt-1">{errors.color.message}</p>}
+                {errors.color && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.color.message}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">
@@ -562,7 +616,11 @@ export default function VehiclesPage() {
                   {...register("year", {
                     required: "กรุณาระบุปีที่ผลิต",
                     valueAsNumber: true,
-                    min: { value: 1970, message: "ปีที่ผลิตต้องเป็น ค.ศ. (ตั้งแต่ 1970 เป็นต้นไป)" },
+                    min: {
+                      value: 1970,
+                      message:
+                        "ปีที่ผลิตต้องเป็น ค.ศ. (ตั้งแต่ 1970 เป็นต้นไป)",
+                    },
                     max: {
                       value: new Date().getFullYear() + 1,
                       message: `ปีที่ผลิตต้องไม่เกิน ค.ศ. ${new Date().getFullYear() + 1}`,
@@ -571,14 +629,23 @@ export default function VehiclesPage() {
                   type="number"
                   min="1970"
                   max={new Date().getFullYear() + 1}
-                  onKeyDown={(e) => ["e", "E", "+", "-", "."].includes(e.key) && e.preventDefault()}
-                  placeholder={`เช่น 2018, ${new Date().getFullYear()}`}
+                  onKeyDown={(e) =>
+                    ["e", "E", "+", "-", "."].includes(e.key) &&
+                    e.preventDefault()
+                  }
+                  placeholder={`เช่น ${new Date().getFullYear()}`}
                   className={clsx(
                     "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none placeholder-slate-400",
-                    errors.year ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                    errors.year
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-slate-300 focus:border-[#8A1ABA]",
                   )}
                 />
-                {errors.year && <p className="text-xs text-red-500 mt-1">{errors.year.message}</p>}
+                {errors.year && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.year.message}
+                  </p>
+                )}
               </div>
               <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2">
@@ -586,29 +653,41 @@ export default function VehiclesPage() {
                     ⚙️ รอบบำรุงรักษามาตรฐาน (อ้างอิงตามประเภทรถ)
                   </span>
                   <span className="text-[11px] font-medium text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
-                    {selectedTypeObj ? selectedTypeObj.type_name : "ยังไม่ได้เลือกประเภทรถ"}
+                    {selectedTypeObj
+                      ? selectedTypeObj.type_name
+                      : "ยังไม่ได้เลือกประเภทรถ"}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200">
                     <p className="text-[11px] text-slate-400">Mineral</p>
-                    <p className="font-semibold text-slate-700 mt-0.5">{currentDefaults.mineral?.toLocaleString() || "-"} กม.</p>
+                    <p className="font-semibold text-slate-700 mt-0.5">
+                      {currentDefaults.mineral?.toLocaleString() || "-"} กม.
+                    </p>
                   </div>
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200">
                     <p className="text-[11px] text-slate-400">กึ่งสังเคราะห์</p>
-                    <p className="font-semibold text-slate-700 mt-0.5">{currentDefaults.semi?.toLocaleString() || "-"} กม.</p>
+                    <p className="font-semibold text-slate-700 mt-0.5">
+                      {currentDefaults.semi?.toLocaleString() || "-"} กม.
+                    </p>
                   </div>
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200">
                     <p className="text-[11px] text-slate-400">สังเคราะห์แท้</p>
-                    <p className="font-semibold text-slate-700 mt-0.5">{currentDefaults.fully?.toLocaleString() || "-"} กม.</p>
+                    <p className="font-semibold text-slate-700 mt-0.5">
+                      {currentDefaults.fully?.toLocaleString() || "-"} กม.
+                    </p>
                   </div>
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200">
                     <p className="text-[11px] text-slate-400">เปลี่ยนยาง</p>
-                    <p className="font-semibold text-slate-700 mt-0.5">{currentDefaults.tire?.toLocaleString() || "-"} กม.</p>
+                    <p className="font-semibold text-slate-700 mt-0.5">
+                      {currentDefaults.tire?.toLocaleString() || "-"} กม.
+                    </p>
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-2">
-                  * กำหนดหรือแก้ไขระยะรอบได้ที่เมนู <strong>"จัดการประเภทยานพาหนะ"</strong> (จะมีผลกับรถทุกคันในประเภทนี้ทันที)
+                  * กำหนดหรือแก้ไขระยะรอบได้ที่เมนู{" "}
+                  <strong>"จัดการประเภทยานพาหนะ"</strong>{" "}
+                  (จะมีผลกับรถทุกคันในประเภทนี้ทันที)
                 </p>
               </div>
               <div>

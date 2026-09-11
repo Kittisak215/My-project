@@ -4,6 +4,7 @@ import api from "../../lib/axios";
 import { toast } from "react-toastify";
 import clsx from "clsx";
 import Skeleton from "../../components/Skeleton";
+import { formatPhone } from "../../utils/format";
 
 const StatusBadge = ({ vehicle }) => {
   if (vehicle?.is_active === false) {
@@ -166,7 +167,9 @@ export default function FleetRegistryPage() {
                 <p className="text-xs text-slate-500">
                   {v.driver?.full_name || "-"}
                 </p>
-                <p className="text-xs text-slate-400">{v.driver?.phone}</p>
+                <p className="text-xs text-slate-400 font-mono">
+                  {formatPhone(v.driver?.phone)}
+                </p>
               </div>
               <p className="text-sm font-semibold text-slate-700">
                 {(v.current_mileage || v.currentMileage || 0).toLocaleString()}{" "}
@@ -264,8 +267,8 @@ export default function FleetRegistryPage() {
                   <td className="px-6 py-4 text-slate-600">
                     {v.driver?.full_name || v.driver?.fullName || "-"}
                     <br />
-                    <span className="text-xs text-slate-400">
-                      {v.driver?.phone}
+                    <span className="text-xs text-slate-400 font-mono">
+                      {formatPhone(v.driver?.phone)}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right font-semibold text-slate-700">

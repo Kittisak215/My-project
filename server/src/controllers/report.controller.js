@@ -231,7 +231,7 @@ exports.pendingApprovals = async (req, res) => {
             include: { vehicle: { include: { driver: true } }, garage: true },
             orderBy: { created_at: 'desc' },
         });
-        const totalAmount = requests.reduce((sum, r) => sum + Number(r.total_cost || 0), 0);
+        const totalAmount = requests.reduce((sum, r) => sum + Number(r.total_cost || r.estimated_cost || 0), 0);
         res.json({ data: requests, totalAmount });
     } catch (err) { res.status(500).json({ message: err.message }); }
 };

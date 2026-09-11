@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { useForm } from "react-hook-form";
 import clsx from "clsx";
 import Skeleton from "../../components/Skeleton";
+import { formatPhone } from "../../utils/format";
 
 const StatusBadge = ({ isActive }) => {
   if (isActive === false)
@@ -188,7 +189,7 @@ export default function GaragesPage() {
                   <StatusBadge isActive={g.is_active} />
                 </div>
                 <p className="font-semibold text-slate-800">{g.garage_name}</p>
-                <p className="text-sm text-slate-500">{g.phone || "-"}</p>
+                <p className="text-sm text-slate-500 font-mono">{formatPhone(g.phone)}</p>
                 <div className="flex flex-wrap gap-1 mt-2">
                   {g.specialization?.map((spec) => (
                     <span
@@ -300,7 +301,7 @@ export default function GaragesPage() {
                       ))}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-slate-600">{g.phone || "-"}</td>
+                  <td className="px-6 py-4 text-slate-600 font-mono">{formatPhone(g.phone)}</td>
                   <td className="px-6 py-4 text-slate-600 max-w-xs truncate">
                     {[
                       g.address,
@@ -367,15 +368,22 @@ export default function GaragesPage() {
               <input
                 {...register("garage_name", {
                   required: "กรุณาระบุชื่ออู่/ศูนย์บริการ",
-                  maxLength: { value: 100, message: "ความยาวไม่เกิน 100 ตัวอักษร" }
+                  maxLength: {
+                    value: 100,
+                    message: "ความยาวไม่เกิน 100 ตัวอักษร",
+                  },
                 })}
                 className={clsx(
                   "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
-                  errors.garage_name ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                  errors.garage_name
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-slate-300 focus:border-[#8A1ABA]",
                 )}
               />
               {errors.garage_name && (
-                <p className="text-xs text-red-500 mt-1">{errors.garage_name.message}</p>
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.garage_name.message}
+                </p>
               )}
             </div>
 
@@ -423,16 +431,21 @@ export default function GaragesPage() {
                   required: "กรุณาระบุเบอร์โทรศัพท์",
                   pattern: {
                     value: /^0\d{8,9}$/,
-                    message: "เบอร์โทรศัพท์ต้องเป็นตัวเลข 9-10 หลัก ขึ้นต้นด้วย 0",
+                    message:
+                      "เบอร์โทรศัพท์ต้องเป็นตัวเลข 9-10 หลัก ขึ้นต้นด้วย 0",
                   },
                 })}
                 className={clsx(
                   "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
-                  errors.phone ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                  errors.phone
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-slate-300 focus:border-[#8A1ABA]",
                 )}
               />
               {errors.phone && (
-                <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.phone.message}
+                </p>
               )}
             </div>
 
@@ -491,15 +504,21 @@ export default function GaragesPage() {
                   }}
                   {...register("postal_code", {
                     validate: (val) =>
-                      !val || /^\d{5}$/.test(val) || "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก",
+                      !val ||
+                      /^\d{5}$/.test(val) ||
+                      "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก",
                   })}
                   className={clsx(
                     "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
-                    errors.postal_code ? "border-red-500 focus:border-red-500" : "border-slate-300 focus:border-[#8A1ABA]"
+                    errors.postal_code
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-slate-300 focus:border-[#8A1ABA]",
                   )}
                 />
                 {errors.postal_code && (
-                  <p className="text-xs text-red-500 mt-1">{errors.postal_code.message}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.postal_code.message}
+                  </p>
                 )}
               </div>
             </div>

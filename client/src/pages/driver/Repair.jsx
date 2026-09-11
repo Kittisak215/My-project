@@ -14,6 +14,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
 import useAuthStore from "../../store/authStore";
+import { formatPhone } from "../../utils/format";
 
 const todayDate = new Date();
 
@@ -40,7 +41,8 @@ export default function DriverRepairPage() {
   // Sync mileage when selected vehicle changes
   useEffect(() => {
     if (selectedVehicle) {
-      const mileage = selectedVehicle.current_mileage || selectedVehicle.currentMileage || 0;
+      const mileage =
+        selectedVehicle.current_mileage || selectedVehicle.currentMileage || 0;
       setValue("mileageAtRepair", mileage);
     }
   }, [selectedVehicle, setValue]);
@@ -72,11 +74,22 @@ export default function DriverRepairPage() {
     if (!selectedVehicle) return toast.error("ไม่มียานพาหนะที่ได้รับมอบหมาย");
     const currentMileage =
       selectedVehicle.current_mileage || selectedVehicle.currentMileage || 0;
-    if (data.mileageAtRepair && parseInt(data.mileageAtRepair) < currentMileage) {
-      return toast.error(`เลขไมล์ขณะเข้าซ่อมต้องไม่น้อยกว่าเลขไมล์ปัจจุบัน (${currentMileage.toLocaleString()} กม.)`);
+    if (
+      data.mileageAtRepair &&
+      parseInt(data.mileageAtRepair) < currentMileage
+    ) {
+      return toast.error(
+        `เลขไมล์ขณะเข้าซ่อมต้องไม่น้อยกว่าเลขไมล์ปัจจุบัน (${currentMileage.toLocaleString()} กม.)`,
+      );
     }
-    if (data.repairStartDate && data.estimatedEndDate && new Date(data.estimatedEndDate) < new Date(data.repairStartDate)) {
-      return toast.error("วันที่คาดว่าจะเสร็จต้องไม่เกิดขึ้นก่อนวันที่เข้าซ่อม");
+    if (
+      data.repairStartDate &&
+      data.estimatedEndDate &&
+      new Date(data.estimatedEndDate) < new Date(data.repairStartDate)
+    ) {
+      return toast.error(
+        "วันที่คาดว่าจะเสร็จต้องไม่เกิดขึ้นก่อนวันที่เข้าซ่อม",
+      );
     }
     setSubmitting(true);
     try {
@@ -165,23 +178,32 @@ export default function DriverRepairPage() {
         {vehicles.length > 1 && (
           <div className="pt-4 border-t border-slate-100">
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                เลือกรถที่ต้องการแจ้งซ่อม
+              เลือกรถที่ต้องการแจ้งซ่อม
             </label>
             <div className="relative">
-                <select
-                  value={selectedVehicle?.vehicle_id || selectedVehicle?.id || ""}
-                  onChange={(e) => handleVehicleChange(e.target.value)}
-                  className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 font-bold text-sm md:text-base rounded-xl px-4 py-3.5 pr-10 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 transition-all cursor-pointer"
+              <select
+                value={selectedVehicle?.vehicle_id || selectedVehicle?.id || ""}
+                onChange={(e) => handleVehicleChange(e.target.value)}
+                className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 font-bold text-sm md:text-base rounded-xl px-4 py-3.5 pr-10 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 transition-all cursor-pointer"
+              >
+                {vehicles.map((v) => (
+                  <option
+                    key={v.vehicle_id || v.id}
+                    value={v.vehicle_id || v.id}
+                  >
+                    🚗 {v.license_plate} ({v.brand} {v.model})
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                <svg
+                  className="fill-current h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
                 >
-                  {vehicles.map((v) => (
-                    <option key={v.vehicle_id || v.id} value={v.vehicle_id || v.id}>
-                      🚗 {v.license_plate} ({v.brand} {v.model})
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                </div>
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                </svg>
+              </div>
             </div>
           </div>
         )}
@@ -200,20 +222,31 @@ export default function DriverRepairPage() {
       ) : (
         <>
           {/* Vehicle Summary Card */}
-          <div 
-              className="text-white rounded-2xl p-5 md:p-6 relative overflow-hidden"
-              style={{
-                  background: 'linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #3b0764 100%)',
-                  boxShadow: '0 10px 30px -10px rgba(124,58,237,0.4)'
-              }}
+          <div
+            className="text-white rounded-2xl p-5 md:p-6 relative overflow-hidden"
+            style={{
+              background:
+                "linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #3b0764 100%)",
+              boxShadow: "0 10px 30px -10px rgba(124,58,237,0.4)",
+            }}
           >
-              {/* Ambient glow blobs */}
-              <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-20"
-                  style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.8), transparent 70%)' }} />
-              <div className="pointer-events-none absolute -bottom-16 -left-10 w-56 h-56 rounded-full opacity-20"
-                  style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.6), transparent 70%)' }} />
-                  
-              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Ambient glow blobs */}
+            <div
+              className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-20"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(139,92,246,0.8), transparent 70%)",
+              }}
+            />
+            <div
+              className="pointer-events-none absolute -bottom-16 -left-10 w-56 h-56 rounded-full opacity-20"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(167,139,250,0.6), transparent 70%)",
+              }}
+            />
+
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
                 <div className="p-3 bg-white/10 rounded-xl backdrop-blur-md shrink-0 border border-white/10">
                   <Car size={24} className="text-white" />
@@ -237,7 +270,9 @@ export default function DriverRepairPage() {
               </div>
 
               <div className="bg-white/10 backdrop-blur-md rounded-xl px-4 py-2.5 border border-white/15 self-start sm:self-auto min-w-[170px] text-left sm:text-right">
-                <p className="text-xs text-violet-200 font-medium">เลขไมล์ปัจจุบัน</p>
+                <p className="text-xs text-violet-200 font-medium">
+                  เลขไมล์ปัจจุบัน
+                </p>
                 <p className="text-lg font-extrabold text-white">
                   {currentMileage.toLocaleString()}{" "}
                   <span className="text-xs font-normal text-violet-200">
@@ -337,7 +372,8 @@ export default function DriverRepairPage() {
                 <input
                   {...register("mileageAtRepair", {
                     validate: (v) => {
-                      if (v === "" || v === undefined || v === null) return true;
+                      if (v === "" || v === undefined || v === null)
+                        return true;
                       const num = Number(v);
                       if (isNaN(num) || num < 0) return "เลขไมล์ต้องไม่ติดลบ";
                       if (currentMileage > 0 && num < currentMileage) {
@@ -350,10 +386,14 @@ export default function DriverRepairPage() {
                   min={currentMileage || 0}
                   defaultValue={currentMileage}
                   placeholder={`ไมล์ปัจจุบัน ${currentMileage.toLocaleString()} กม.`}
-                  onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
+                  onKeyDown={(e) =>
+                    ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()
+                  }
                   className={clsx(
                     "w-full border rounded-xl px-4 py-3 text-sm focus:outline-none bg-white",
-                    errors.mileageAtRepair ? "border-red-500 focus:ring-2 focus:ring-red-200" : "border-slate-300 focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA]"
+                    errors.mileageAtRepair
+                      ? "border-red-500 focus:ring-2 focus:ring-red-200"
+                      : "border-slate-300 focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA]",
                   )}
                 />
                 {errors.mileageAtRepair && (
@@ -391,7 +431,7 @@ export default function DriverRepairPage() {
                     {garages.map((g) => (
                       <option key={g.garage_id} value={g.garage_id}>
                         {g.garage_name}
-                        {g.phone ? ` (${g.phone})` : ""}
+                        {g.phone ? ` (${formatPhone(g.phone)})` : ""}
                       </option>
                     ))}
                   </select>
@@ -417,10 +457,15 @@ export default function DriverRepairPage() {
                       min={0}
                       step="0.01"
                       placeholder="0.00"
-                      onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
+                      onKeyDown={(e) =>
+                        ["e", "E", "+", "-"].includes(e.key) &&
+                        e.preventDefault()
+                      }
                       className={clsx(
                         "w-full border rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none",
-                        errors.estimatedCost ? "border-red-500 focus:ring-2 focus:ring-red-200" : "border-slate-300 focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA]"
+                        errors.estimatedCost
+                          ? "border-red-500 focus:ring-2 focus:ring-red-200"
+                          : "border-slate-300 focus:ring-2 focus:ring-[#8A1ABA]/20 focus:border-[#8A1ABA]",
                       )}
                     />
                     {errors.estimatedCost && (

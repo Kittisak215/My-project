@@ -14,7 +14,7 @@ datasource db {
 // =============================================
 model VehicleType {
   type_id                         Int       @id @default(autoincrement())
-  type_name                       String    @db.VarChar(100)
+  type_name                       String    @db.VarChar(50)
   oil_interval_mineral_km         Int       @default(5000)   // น้ำมันธรรมดา
   oil_interval_semi_synthetic_km  Int       @default(7000)   // กึ่งสังเคราะห์
   oil_interval_fully_synthetic_km Int       @default(10000)  // สังเคราะห์แท้
@@ -29,8 +29,8 @@ model VehicleType {
 // =============================================
 model Driver {
   driver_id   Int             @id @default(autoincrement())
-  full_name   String          @db.VarChar(200)
-  phone       String          @db.VarChar(20)
+  full_name   String          @db.VarChar(100)
+  phone       String          @db.VarChar(10)
   is_active   Boolean         @default(true)
   vehicles    Vehicle[]
   userAccount User?
@@ -50,8 +50,8 @@ model User {
   role          UserRole  @default(DRIVER)
   driver        Driver?   @relation(fields: [driver_id], references: [driver_id])
   driver_id     Int?      @unique
-  full_name     String?   @db.VarChar(200)
-  email         String?   @db.VarChar(200)
+  full_name     String?   @db.VarChar(100)
+  email         String?   @db.VarChar(100)
   is_active     Boolean   @default(true)
   last_login    DateTime?
 
@@ -120,13 +120,13 @@ model MileageLog {
 // =============================================
 model Garage {
   garage_id      Int                    @id @default(autoincrement())
-  garage_name    String                 @db.VarChar(200)
+  garage_name    String                 @db.VarChar(100)
   specialization GarageSpecialization[] @default([GENERAL])
-  phone          String?                @db.VarChar(20)
-  address        String?                @db.VarChar(200)
-  sub_district   String?                @db.VarChar(100)
-  district       String?                @db.VarChar(100)
-  province       String?                @db.VarChar(100)
+  phone          String?                @db.VarChar(10)
+  address        String?                @db.VarChar(50)
+  sub_district   String?                @db.VarChar(50)
+  district       String?                @db.VarChar(50)
+  province       String?                @db.VarChar(50)
   postal_code    String?                @db.VarChar(10)
   is_active      Boolean                @default(true)
   repairs        RepairRequest[]

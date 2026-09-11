@@ -89,22 +89,27 @@ const MaintenanceForecastCard = () => {
                 )}
                 
                 {displayedVehicles.map((item) => (
-                    <div key={item.vehicle.vehicle_id} className="bg-slate-50 rounded-xl p-4 border border-slate-100 transition-all">
-                        <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-200 border-dashed">
-                            <div className="flex items-center gap-3">
-                                <div className="font-bold text-slate-800 text-base">{item.vehicle.license_plate}</div>
-                                <div className="text-xs text-slate-500 px-2 py-1 bg-white rounded-md border border-slate-200 shadow-xs">เลขไมล์ล่าสุด: {item.current_mileage.toLocaleString()} กม.</div>
+                    <div key={item.vehicle.vehicle_id} className="bg-slate-50 hover:bg-slate-50/90 rounded-xl p-3 md:p-3.5 border border-slate-200/70 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                        <div className="flex flex-col justify-center shrink-0 min-w-[140px] md:min-w-[170px]">
+                            <div className="font-bold text-slate-900 text-base md:text-lg tracking-tight whitespace-nowrap">
+                                {item.vehicle.license_plate}
+                            </div>
+                            <div className="text-xs text-slate-600 font-medium flex items-center gap-1.5 mt-1 whitespace-nowrap">
+                                <span className="text-slate-500">เลขไมล์:</span>
+                                <span className="font-bold text-slate-800 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">
+                                    {item.current_mileage.toLocaleString()} กม.
+                                </span>
                             </div>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 flex-1">
                             {item.forecasts.map((f, idx) => {
                                 const status = getStatusInfo(f.remaining_mileage);
                                 const isOil = f.type === 'OIL_CHANGE';
                                 return (
-                                    <div key={idx} className={clsx("p-3 rounded-lg border flex items-center justify-between transition-colors", status.bg, status.border)}>
+                                    <div key={idx} className={clsx("px-3 py-2 rounded-lg border flex items-center justify-between transition-colors", status.bg, status.border)}>
                                         <div className="flex items-center gap-2">
-                                            <div className={clsx("p-1.5 rounded-md bg-white shadow-sm", status.color)}>
+                                            <div className={clsx("p-1.5 rounded-md bg-white shadow-2xs", status.color)}>
                                                 {isOil ? <Droplet size={14} /> : <Disc size={14} />}
                                             </div>
                                             <div className="flex flex-col">
@@ -124,10 +129,10 @@ const MaintenanceForecastCard = () => {
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <div className={clsx("font-bold text-sm", status.color)}>
+                                            <div className={clsx("font-bold text-xs md:text-sm", status.color)}>
                                                 {f.remaining_mileage > 0 ? `${f.remaining_mileage.toLocaleString()} กม.` : 'เลยกำหนด'}
                                             </div>
-                                            <div className="text-[10px] text-slate-400">รอบกำหนด: {f.next_service_mileage.toLocaleString()}</div>
+                                            <div className="text-[10px] text-slate-400 whitespace-nowrap">รอบกำหนด: {f.next_service_mileage.toLocaleString()}</div>
                                         </div>
                                     </div>
                                 );

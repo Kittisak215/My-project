@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ToastContainer } from 'react-toastify';
+import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import useAuthStore from './store/authStore';
 
@@ -24,7 +25,6 @@ import VehicleTypesPage from './pages/admin/VehicleTypes';
 // Executive Pages
 import ExecutiveDashboard from './pages/executive/Dashboard';
 import ExpenseReportPage from './pages/executive/ExpenseReport';
-import ApprovalsPage from './pages/admin/Approvals';
 import FleetRegistryPage from './pages/executive/FleetRegistry';
 
 // Driver Pages
@@ -50,9 +50,20 @@ const RoleRedirect = () => {
 };
 
 function App() {
+  useEffect(() => {
+    toast.dismiss();
+  }, []);
+
   return (
     <BrowserRouter>
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
+      <ToastContainer 
+        position="top-right" 
+        autoClose={2500} 
+        limit={1} 
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+      />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<Navigate to="/login" replace />} />

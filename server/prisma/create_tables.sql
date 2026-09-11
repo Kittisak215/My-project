@@ -25,14 +25,14 @@ CREATE TYPE "AlertType" AS ENUM ('OIL_CHANGE', 'TIRE_CHANGE', 'INSPECTION', 'OTH
 -- ประเภทยานพาหนะ
 CREATE TABLE vehicle_types (
     type_id SERIAL PRIMARY KEY,
-    type_name VARCHAR(100) NOT NULL
+    type_name VARCHAR(50) NOT NULL
 );
 
 -- ผู้ขับรถ
 CREATE TABLE drivers (
     driver_id SERIAL PRIMARY KEY,
-    full_name VARCHAR(200) NOT NULL,
-    phone VARCHAR(20) NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(10) NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT true
 );
 
@@ -43,8 +43,8 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     role "UserRole" NOT NULL DEFAULT 'DRIVER',
     driver_id INTEGER UNIQUE,
-    full_name VARCHAR(200),
-    email VARCHAR(200),
+    full_name VARCHAR(100),
+    email VARCHAR(100),
     is_active BOOLEAN NOT NULL DEFAULT true,
     last_login TIMESTAMP,
     FOREIGN KEY (driver_id) REFERENCES drivers(driver_id) ON DELETE SET NULL
@@ -71,12 +71,12 @@ CREATE TABLE vehicles (
 -- อู่ซ่อมรถ
 CREATE TABLE garages (
     garage_id SERIAL PRIMARY KEY,
-    garage_name VARCHAR(200) NOT NULL,
-    phone VARCHAR(20),
-    address VARCHAR(200),
-    sub_district VARCHAR(100),
-    district VARCHAR(100),
-    province VARCHAR(100),
+    garage_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(10),
+    address VARCHAR(50),
+    sub_district VARCHAR(50),
+    district VARCHAR(50),
+    province VARCHAR(50),
     postal_code VARCHAR(10),
     is_active BOOLEAN NOT NULL DEFAULT true
 );

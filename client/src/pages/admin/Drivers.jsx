@@ -1,10 +1,23 @@
 import { useEffect, useState } from "react";
-import { Search, X, Copy, CheckCheck, Trash2, User, Phone, Mail } from "lucide-react";
+import {
+  Search,
+  X,
+  Copy,
+  CheckCheck,
+  Trash2,
+  User,
+  Phone,
+  Mail,
+  Eye,
+  EyeOff,
+  Car,
+} from "lucide-react";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
 import { useForm } from "react-hook-form";
 import clsx from "clsx";
 import Skeleton from "../../components/Skeleton";
+import { formatPhone } from "../../utils/format";
 
 const StatusBadge = ({ isActive }) => (
   <span
@@ -16,6 +29,9 @@ const StatusBadge = ({ isActive }) => (
     {isActive ? "🟢 ปฏิบัติงาน" : "⚫ พ้นสภาพ"}
   </span>
 );
+
+
+
 
 const Modal = ({ title, onClose, children }) => (
   <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -130,7 +146,15 @@ export default function DriversPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [credential, setCredential] = useState(null); // สำหรับแสดงกล่องรหัสผ่าน
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
+  const [showPassword, setShowPassword] = useState(false);
+  const [selectedDriverVehicles, setSelectedDriverVehicles] = useState(null);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm();
   const limit = 10;
   const watchPhone = watch("phone", "");
 
@@ -154,6 +178,7 @@ export default function DriversPage() {
 
   const openCreate = () => {
     setEditing(null);
+    setShowPassword(false);
     reset({ is_active: "true" });
     setShowModal(true);
   };
@@ -295,24 +320,26 @@ export default function DriversPage() {
                     <StatusBadge isActive={d.is_active} />
                   </div>
                   <p className="font-semibold text-slate-800">{d.full_name}</p>
-                  <p className="text-sm text-slate-500">{d.phone}</p>
+                  <p className="text-sm text-slate-500">
+                    {formatPhone(d.phone)}
+                  </p>
                   <p className="text-xs text-slate-400 mt-1">
                     ผูกบัญชี: {d.userAccount?.username || "-"}
                   </p>
-                  <div className="flex flex-wrap gap-1 mt-2">
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-xs text-slate-500">จำนวนรถ:</span>
                     {d.vehicles && d.vehicles.length > 0 ? (
-                      d.vehicles.map((v, i) => (
-                        <span
-                          key={v.vehicle_id || i}
-                          className="bg-blue-50 text-blue-700 border border-blue-200 py-0.5 px-2 rounded-md text-[10px] font-medium"
-                        >
-                          {v.license_plate}
-                        </span>
-                      ))
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDriverVehicles(d)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full text-xs font-semibold border border-blue-200 transition-all cursor-pointer shadow-xs active:scale-95"
+                      >
+                        <Car size={13} className="text-blue-600" />
+                        <span>{d.vehicles.length} คัน</span>
+                        <span className="text-[10px] text-blue-500 font-normal underline ml-0.5">ดูทะเบียน</span>
+                      </button>
                     ) : (
-                      <span className="text-slate-400 text-[10px] bg-slate-50 py-0.5 px-2 rounded-md border border-slate-200">
-                        ไม่มีรถในความดูแล
-                      </span>
+                      <span className="text-slate-400 text-xs">ไม่มีรถในความดูแล</span>
                     )}
                   </div>
                 </div>
@@ -408,21 +435,22 @@ export default function DriversPage() {
                         ผูกบัญชี: {d.userAccount?.username || "-"}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-600">{d.phone}</td>
-                    <td className="px-6 py-4 text-center max-w-50">
+                    <td className="px-6 py-4 text-slate-600 font-mono text-sm">
+                      {formatPhone(d.phone)}
+                    </td>
+                    <td className="px-6 py-4 text-center">
                       {d.vehicles && d.vehicles.length > 0 ? (
-                        <div className="flex flex-wrap gap-1 justify-center">
-                          {d.vehicles.map((v, i) => (
-                            <span
-                              key={v.vehicle_id || i}
-                              className="bg-blue-50 text-blue-700 border border-blue-200 py-1 px-2 rounded-md text-xs font-medium"
-                            >
-                              {v.license_plate}
-                            </span>
-                          ))}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDriverVehicles(d)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full text-xs font-semibold border border-blue-200 transition-all cursor-pointer shadow-xs active:scale-95"
+                          title="คลิกเพื่อดูรายการป้ายทะเบียน"
+                        >
+                          <Car size={13} className="text-blue-600" />
+                          <span>{d.vehicles.length} คัน</span>
+                        </button>
                       ) : (
-                        <span className="text-slate-400 text-xs">-</span>
+                        <span className="text-slate-400 text-xs">0 คัน</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -494,7 +522,10 @@ export default function DriversPage() {
       {showModal && (
         <Modal
           title={editing ? "แก้ไขผู้รับผิดชอบ" : "เพิ่มผู้รับผิดชอบ"}
-          onClose={() => setShowModal(false)}
+          onClose={() => {
+            setShowModal(false);
+            setShowPassword(false);
+          }}
         >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div className="space-y-4">
@@ -507,17 +538,28 @@ export default function DriversPage() {
                 <input
                   {...register("full_name", {
                     required: "กรุณาระบุชื่อ - นามสกุล",
-                    maxLength: { value: 100, message: "ชื่อ - นามสกุลต้องไม่เกิน 100 ตัวอักษร" },
-                    validate: (v) => (v && v.trim().length > 0) || "ชื่อ - นามสกุลต้องไม่เป็นช่องว่าง",
+                    maxLength: {
+                      value: 100,
+                      message: "ชื่อ - นามสกุลต้องไม่เกิน 100 ตัวอักษร",
+                    },
+                    validate: (v) =>
+                      (v && v.trim().length > 0) ||
+                      "ชื่อ - นามสกุลต้องไม่เป็นช่องว่าง",
                   })}
                   maxLength={100}
                   className={clsx(
                     "block w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white placeholder-slate-300",
-                    errors.full_name ? "border-red-400 focus:ring-red-500/10 focus:border-red-500" : "border-slate-200 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA]"
+                    errors.full_name
+                      ? "border-red-400 focus:ring-red-500/10 focus:border-red-500"
+                      : "border-slate-200 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA]",
                   )}
                   placeholder="เช่น สมชาย ใจดี"
                 />
-                {errors.full_name && <p className="text-xs text-red-500 mt-1">{errors.full_name.message}</p>}
+                {errors.full_name && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.full_name.message}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -531,19 +573,28 @@ export default function DriversPage() {
                     required: "กรุณาระบุเบอร์โทรศัพท์",
                     pattern: {
                       value: /^0[689]\d{8}$/,
-                      message: "เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก (ขึ้นต้นด้วย 06, 08 หรือ 09)",
+                      message:
+                        "เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก (ขึ้นต้นด้วย 06, 08 หรือ 09)",
                     },
                   })}
                   type="tel"
                   maxLength={10}
-                  onInput={(e) => { e.target.value = e.target.value.replace(/\D/g, ""); }}
+                  onInput={(e) => {
+                    e.target.value = e.target.value.replace(/\D/g, "");
+                  }}
                   className={clsx(
                     "block w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white placeholder-slate-300",
-                    errors.phone ? "border-red-400 focus:ring-red-500/10 focus:border-red-500" : "border-slate-200 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA]"
+                    errors.phone
+                      ? "border-red-400 focus:ring-red-500/10 focus:border-red-500"
+                      : "border-slate-200 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA]",
                   )}
                   placeholder="08XXXXXXXX"
                 />
-                {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
+                {errors.phone && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.phone.message}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -566,11 +617,17 @@ export default function DriversPage() {
                   type="email"
                   className={clsx(
                     "block w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white placeholder-slate-300",
-                    errors.email ? "border-red-400 focus:ring-red-500/10 focus:border-red-500" : "border-slate-200 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA]"
+                    errors.email
+                      ? "border-red-400 focus:ring-red-500/10 focus:border-red-500"
+                      : "border-slate-200 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA]",
                   )}
                   placeholder="example@mail.com"
                 />
-                {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
+                {errors.email && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.email.message}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -584,7 +641,7 @@ export default function DriversPage() {
                     ข้อมูลบัญชีล็อกอิน
                   </p>
                 </div>
-                
+
                 <div className="space-y-4 relative z-10">
                   <div>
                     <label className="text-sm font-medium text-slate-700 mb-1 block">
@@ -606,19 +663,39 @@ export default function DriversPage() {
                         (เว้นว่างเพื่อใช้เบอร์โทรเป็นรหัสผ่านตั้งต้น)
                       </span>
                     </label>
-                    <input
-                      {...register("password")}
-                      type="text"
-                      placeholder={watchPhone || "เบอร์โทรศัพท์"}
-                      className="block w-full border border-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all bg-white/70 hover:bg-white shadow-sm"
-                    />
+                    <div className="relative">
+                      <input
+                        {...register("password")}
+                        type={showPassword ? "text" : "password"}
+                        placeholder={
+                          showPassword
+                            ? watchPhone || "เบอร์โทรศัพท์"
+                            : watchPhone
+                            ? "••••••••"
+                            : "เบอร์โทรศัพท์"
+                        }
+                        className="block w-full border border-white rounded-xl pl-4 pr-11 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all bg-white/70 hover:bg-white shadow-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-indigo-600 transition-colors"
+                        title={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-start gap-2 mt-4 pt-3 border-t border-indigo-100/50">
-                   <span className="text-amber-500 text-sm">💡</span>
-                   <p className="text-[11px] text-slate-500 leading-tight">
-                     <span className="font-semibold text-slate-600">คำแนะนำ:</span> เพื่อความปลอดภัย แนะนำให้พนักงานเปลี่ยนรหัสผ่านด้วยตนเอง หลังจากล็อกอินเข้าสู่ระบบครั้งแรก
-                   </p>
+                  <span className="text-amber-500 text-sm">💡</span>
+                  <p className="text-[11px] text-slate-500 leading-tight">
+                    <span className="font-semibold text-slate-600">
+                      คำแนะนำ:
+                    </span>{" "}
+                    เพื่อความปลอดภัย แนะนำให้พนักงานเปลี่ยนรหัสผ่านด้วยตนเอง
+                    หลังจากล็อกอินเข้าสู่ระบบครั้งแรก
+                  </p>
                 </div>
               </div>
             )}
@@ -637,7 +714,7 @@ export default function DriversPage() {
                 </option>
               </select>
             </div>
-            
+
             <div className="flex justify-end gap-3 pt-5 mt-2 border-t border-slate-100">
               <button
                 type="button"
@@ -654,6 +731,81 @@ export default function DriversPage() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Modal แสดงรายการรถของคนขับ */}
+      {selectedDriverVehicles && (
+        <Modal
+          title={`รถในความดูแลของ ${selectedDriverVehicles.full_name}`}
+          onClose={() => setSelectedDriverVehicles(null)}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-blue-50/60 p-3 rounded-xl border border-blue-100">
+              <div className="flex items-center gap-2 text-blue-800 text-xs font-semibold">
+                <Car size={16} className="text-blue-600" />
+                <span>จำนวนทั้งหมด {selectedDriverVehicles.vehicles?.length || 0} คัน</span>
+              </div>
+              <span className="text-xs text-slate-500">
+                เบอร์โทร: {formatPhone(selectedDriverVehicles.phone)}
+              </span>
+            </div>
+
+            <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+              {selectedDriverVehicles.vehicles && selectedDriverVehicles.vehicles.length > 0 ? (
+                selectedDriverVehicles.vehicles.map((v, i) => (
+                  <div
+                    key={v.vehicle_id || i}
+                    className="flex items-center justify-between bg-slate-50 hover:bg-slate-100 p-3 rounded-xl border border-slate-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                        <Car size={18} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800 text-sm">
+                          {v.license_plate}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {[v.brand, v.model].filter(Boolean).join(" ") || "-"}
+                          {v.color && ` • สี${v.color}`}
+                          {v.year && ` • ปี ${v.year}`}
+                        </p>
+                      </div>
+                    </div>
+                    {v.status && (
+                      <span
+                        className={clsx(
+                          "text-xs px-2.5 py-0.5 rounded-full font-medium border",
+                          v.status === "ACTIVE" || v.status === "READY"
+                            ? "bg-green-50 text-green-700 border-green-200"
+                            : "bg-slate-100 text-slate-600 border-slate-200",
+                        )}
+                      >
+                        {v.status === "ACTIVE" || v.status === "READY"
+                          ? "พร้อมใช้งาน"
+                          : v.status}
+                      </span>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-center py-6 text-slate-400 text-xs">
+                  ไม่มีรถในความดูแล
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSelectedDriverVehicles(null)}
+                className="px-5 py-2 bg-[#8A1ABA] hover:bg-[#72159c] text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow transition-all cursor-pointer active:scale-95"
+              >
+                ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

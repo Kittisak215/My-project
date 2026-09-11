@@ -9,6 +9,7 @@ import {
   ImageOff,
   Wrench,
   AlertCircle,
+  Paperclip,
 } from "lucide-react";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
@@ -17,21 +18,21 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import clsx from "clsx";
 import Skeleton from "../../components/Skeleton";
-import ApprovalsPage from "./Approvals";
+import { formatPhone } from "../../utils/format";
 
 const statusMap = {
   PENDING: "bg-amber-100 text-amber-700 border-amber-200",
   IN_PROGRESS: "bg-blue-100 text-blue-700 border-blue-200",
   COMPLETED: "bg-green-100 text-green-700 border-green-200",
   AWAITING_APPROVAL: "bg-purple-100 text-purple-700 border-purple-200",
-  APPROVED: "bg-green-100 text-green-700",
-  REJECTED: "bg-red-100 text-red-700",
+  APPROVED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  REJECTED: "bg-red-100 text-red-700 border-red-200",
 };
 const statusLabel = {
   PENDING: "📝 รอตรวจสอบ",
   IN_PROGRESS: "🔧 กำลังดำเนินการ",
   COMPLETED: "✅ ซ่อมเสร็จสิ้น",
-  AWAITING_APPROVAL: "⏳ รออนุมัติ",
+  AWAITING_APPROVAL: "⏳ รออนุมัติงบ",
   APPROVED: "✅ อนุมัติแล้ว",
   REJECTED: "❌ ไม่อนุมัติ",
 };
@@ -107,11 +108,11 @@ const formatDate = (dateStr) => {
 };
 
 export default function RepairsPage() {
-  const [activeTab, setActiveTab] = useState("GENERAL");
   const [repairs, setRepairs] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [repairType, setRepairType] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -131,7 +132,7 @@ export default function RepairsPage() {
   const fetchAll = useCallback(async () => {
     try {
       const [rRes, gRes] = await Promise.all([
-        api.get("/repairs", { params: { search, status, page, limit } }),
+        api.get("/repairs", { params: { search, status, repair_type: repairType || undefined, page, limit } }),
         api.get("/garages", { params: { limit: 100 } }),
       ]);
       setRepairs(rRes.data.data);
@@ -142,7 +143,7 @@ export default function RepairsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, status, page, limit]);
+  }, [search, status, repairType, page, limit]);
 
   useEffect(() => {
     fetchAll();
@@ -151,20 +152,7 @@ export default function RepairsPage() {
   const location = useLocation();
   const locationStateHandled = useRef(false);
 
-  useEffect(() => {
-    if (location.state?.openRequestId && !locationStateHandled.current) {
-      locationStateHandled.current = true;
-      // Fetch the specific request to guarantee we have it, even if not on the current page
-      api.get(`/repairs/${location.state.openRequestId}`).then(res => {
-         if (res.data) openStatusModal(res.data);
-      }).catch(() => toast.error("ไม่พบข้อมูลคำร้องซ่อมนี้"));
-      
-      // Clean up the state so it doesn't reopen on refresh
-      window.history.replaceState({}, document.title);
-    }
-  }, [location]);
-
-  const openStatusModal = (r) => {
+  const openStatusModal = useCallback((r) => {
     setSelectedRepair(r);
     const pCost = r.parts_cost != null ? r.parts_cost : (r.total_cost != null && r.labor_cost == null ? r.total_cost : "");
     const lCost = r.labor_cost != null ? r.labor_cost : "";
@@ -187,7 +175,20 @@ export default function RepairsPage() {
       is_tire_changed: r.is_tire_changed ? "true" : "",
     });
     setShowStatusModal(true);
-  };
+  }, [reset]);
+
+  useEffect(() => {
+    if (location.state?.openRequestId && !locationStateHandled.current) {
+      locationStateHandled.current = true;
+      // Fetch the specific request to guarantee we have it, even if not on the current page
+      api.get(`/repairs/${location.state.openRequestId}`).then(res => {
+         if (res.data) openStatusModal(res.data);
+      }).catch(() => toast.error("ไม่พบข้อมูลคำร้องซ่อมนี้"));
+      
+      // Clean up the state so it doesn't reopen on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location, openStatusModal]);
 
   const openDetailModal = (r) => {
     setSelectedDetailRepair(r);
@@ -243,65 +244,54 @@ export default function RepairsPage() {
 
   return (
     <div>
-      {/* Tabs */}
-      <div className="flex bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-4 md:mb-6">
-        <button
-          onClick={() => setActiveTab("GENERAL")}
-          className={`flex-1 py-3 text-sm font-bold transition-colors ${activeTab === "GENERAL" ? "bg-purple-50 text-purple-600 border-b-2 border-purple-600" : "text-slate-500 hover:bg-slate-50"}`}
-        >
-          <div className="flex items-center justify-center gap-2">
-            รายการซ่อมทั่วไป
+      {/* Toolbar */}
+      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center bg-white p-4 rounded-xl shadow-sm mb-4 md:mb-6 gap-3 border border-slate-100">
+        <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full">
+          <div className="relative flex-1 sm:flex-none">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="ค้นหาเลขที่, ทะเบียนรถ..."
+              className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-violet-500 w-full sm:w-56"
+            />
           </div>
-        </button>
-        <button
-          onClick={() => setActiveTab("APPROVALS")}
-          className={`flex-1 py-3 text-sm font-bold transition-colors ${activeTab === "APPROVALS" ? "bg-purple-50 text-purple-600 border-b-2 border-purple-600" : "text-slate-500 hover:bg-slate-50"}`}
-        >
-          <div className="flex items-center justify-center gap-2">
-            เบิกงบฉุกเฉิน
-          </div>
-        </button>
+          <select
+            value={repairType}
+            onChange={(e) => {
+              setRepairType(e.target.value);
+              setPage(1);
+            }}
+            className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-violet-500 bg-white"
+          >
+            <option value="">ประเภททั้งหมด</option>
+            <option value="GENERAL">ซ่อมทั่วไป</option>
+            <option value="EMERGENCY">ซ่อมฉุกเฉิน</option>
+          </select>
+          <select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
+            className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-violet-500 bg-white"
+          >
+            <option value="">สถานะทั้งหมด</option>
+            <option value="PENDING">📝 รอตรวจสอบ</option>
+            <option value="AWAITING_APPROVAL">⏳ รออนุมัติงบ</option>
+            <option value="APPROVED">✅ อนุมัติแล้ว</option>
+            <option value="REJECTED">❌ ไม่อนุมัติ</option>
+            <option value="IN_PROGRESS">🔧 กำลังดำเนินการซ่อม</option>
+            <option value="COMPLETED">🏁 ซ่อมเสร็จสิ้น</option>
+          </select>
+        </div>
       </div>
-
-      {activeTab === "APPROVALS" ? (
-        <ApprovalsPage />
-      ) : (
-        <>
-          {/* Toolbar */}
-          <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center bg-white p-4 rounded-xl shadow-sm mb-4 md:mb-6 gap-3 border border-slate-100">
-            <div className="flex flex-col sm:flex-row gap-3 w-full">
-              <div className="relative flex-1 sm:flex-none">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="ค้นหาเลขที่, ทะเบียนรถ..."
-                  className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-violet-500 w-full sm:w-56"
-                />
-              </div>
-              <select
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value);
-                  setPage(1);
-                }}
-                className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-violet-500"
-              >
-                <option value="">สถานะทั้งหมด</option>
-                <option value="PENDING">รอตรวจสอบ</option>
-                <option value="APPROVED">อนุมัติแล้ว</option>
-                <option value="REJECTED">ไม่อนุมัติ</option>
-                <option value="IN_PROGRESS">กำลังซ่อม</option>
-                <option value="COMPLETED">เสร็จสิ้น</option>
-              </select>
-            </div>
-          </div>
 
           {/* Mobile Cards */}
           <div className="md:hidden space-y-3 mb-4">
@@ -528,8 +518,8 @@ export default function RepairsPage() {
                             <div className="text-slate-800 text-xs font-semibold">
                               {r.garage.garage_name}
                             </div>
-                            <div className="text-xs text-slate-400">
-                              {r.garage.phone}
+                            <div className="text-xs text-slate-400 font-mono">
+                              {formatPhone(r.garage.phone)}
                             </div>
                           </>
                         ) : (
@@ -580,22 +570,21 @@ export default function RepairsPage() {
                       </td>
                       <td className="px-4 py-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center">
-                          {r.status === "COMPLETED" ||
-                          r.status === "REJECTED" ? (
+                          {r.status === "COMPLETED" || r.status === "REJECTED" ? (
                             <button
+                              type="button"
                               onClick={() => openDetailModal(r)}
-                              className="w-full max-w-[120px] px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 rounded border border-slate-200"
+                              className="w-full max-w-[120px] px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-all cursor-pointer"
                             >
                               ดูรายละเอียด
                             </button>
                           ) : (
                             <button
+                              type="button"
                               onClick={() => openStatusModal(r)}
-                              className="w-full max-w-[120px] px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded border border-blue-200"
+                              className="w-full max-w-[120px] px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg border border-slate-200 transition-all cursor-pointer"
                             >
-                              {r.status === "PENDING"
-                                ? "ตรวจสอบ"
-                                : "อัปเดตสถานะ"}
+                              อัปเดตสถานะ
                             </button>
                           )}
                         </div>
@@ -652,17 +641,45 @@ export default function RepairsPage() {
           {/* Status Update Modal */}
           {showStatusModal && selectedRepair && (
             <Modal
-              title={`อัปเดตสถานะ: REQ-${String(selectedRepair.request_id).padStart(4, "0")}`}
+              title={
+                selectedRepair.status === "AWAITING_APPROVAL"
+                  ? `พิจารณาอนุมัติงบ: REQ-${String(selectedRepair.request_id).padStart(4, "0")}`
+                  : `อัปเดตสถานะ: REQ-${String(selectedRepair.request_id).padStart(4, "0")}`
+              }
               onClose={() => setShowStatusModal(false)}
             >
-              <div className="bg-slate-50 p-3 rounded-lg mb-4 text-sm">
-                <p className="font-medium text-slate-800">
-                  {selectedRepair.vehicle?.license_plate}
+              <div className="bg-slate-50 p-3 rounded-xl mb-3 text-sm border border-slate-200/80">
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-slate-800">
+                    {selectedRepair.vehicle?.license_plate}
+                  </p>
+                  <RepairTypeBadge type={selectedRepair.repair_type} />
+                </div>
+                <p className="text-slate-600 text-xs mt-1">
+                  <span className="font-semibold text-slate-500">ปัญหา:</span> {selectedRepair.issue_description}
                 </p>
-                <p className="text-slate-500 text-xs mt-0.5">
-                  {selectedRepair.issue_description}
-                </p>
+                {selectedRepair.estimated_cost && (
+                  <p className="text-amber-800 font-semibold text-xs mt-1.5 bg-amber-50 px-2 py-1 rounded border border-amber-200/60 inline-block">
+                    ยอดประเมิน/ขออนุมัติ: ฿{parseFloat(selectedRepair.estimated_cost).toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท
+                  </p>
+                )}
               </div>
+
+              {selectedRepair.receipt_image && (
+                <div className="flex items-center justify-between p-2.5 mb-3 bg-purple-50 rounded-xl border border-purple-100 text-xs">
+                  <span className="font-medium text-purple-900 flex items-center gap-1.5">
+                    <Paperclip size={14} className="text-[#8A1ABA]" /> มีใบเสร็จ/หลักฐานแนบมา
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setViewReceipt(selectedRepair.receipt_image)}
+                    className="font-bold text-[#8A1ABA] hover:underline cursor-pointer"
+                  >
+                    คลิกดูรูปภาพบิล
+                  </button>
+                </div>
+              )}
+
               <form
                 onSubmit={handleSubmit(onStatusSubmit)}
                 className="space-y-4"
@@ -673,13 +690,14 @@ export default function RepairsPage() {
                   </label>
                   <select
                     {...register("status", { required: true })}
-                    className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500"
+                    className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500 bg-white"
                   >
-                    <option value="PENDING">รอตรวจสอบ</option>
-                    <option value="APPROVED">อนุมัติ (ดำเนินการซ่อมได้)</option>
-                    <option value="REJECTED">ไม่อนุมัติ</option>
-                    <option value="IN_PROGRESS">กำลังดำเนินการซ่อม</option>
-                    <option value="COMPLETED">ซ่อมเสร็จสิ้น</option>
+                    <option value="PENDING">📝 รอตรวจสอบ</option>
+                    <option value="AWAITING_APPROVAL">⏳ รออนุมัติงบ</option>
+                    <option value="APPROVED">✅ อนุมัติ (ดำเนินการซ่อมได้)</option>
+                    <option value="REJECTED">❌ ไม่อนุมัติ</option>
+                    <option value="IN_PROGRESS">🔧 กำลังดำเนินการซ่อม</option>
+                    <option value="COMPLETED">🏁 ซ่อมเสร็จสิ้น</option>
                   </select>
                 </div>
                 <div>
@@ -1032,8 +1050,8 @@ export default function RepairsPage() {
                       {selectedDetailRepair.garage?.garage_name || "ยังไม่ระบุ"}
                     </p>
                     {selectedDetailRepair.garage?.phone && (
-                      <p className="text-xs text-slate-400">
-                        {selectedDetailRepair.garage.phone}
+                      <p className="text-xs text-slate-400 font-mono">
+                        {formatPhone(selectedDetailRepair.garage.phone)}
                       </p>
                     )}
                   </div>
@@ -1158,11 +1176,24 @@ export default function RepairsPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex justify-end pt-3 border-t">
+                <div className="flex justify-end items-center gap-2 pt-3 border-t">
+                  {selectedDetailRepair?.status === "AWAITING_APPROVAL" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const item = selectedDetailRepair;
+                        setShowDetailModal(false);
+                        openStatusModal(item);
+                      }}
+                      className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                    >
+                      พิจารณาอนุมัติงบ / อัปเดตสถานะ
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setShowDetailModal(false)}
-                    className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700"
+                    className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700 cursor-pointer"
                   >
                     ปิด
                   </button>
@@ -1170,8 +1201,6 @@ export default function RepairsPage() {
               </div>
             </Modal>
           )}
-        </>
-      )}
 
       {/* Receipt Image Modal */}
       {viewReceipt && (

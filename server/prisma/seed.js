@@ -28,11 +28,11 @@ async function main() {
     // ============================================
     const driver1 = await prisma.driver.upsert({
         where: { driver_id: 1 }, update: {},
-        create: { full_name: 'สมชาย ขับดี', phone: '081-234-5678', is_active: true },
+        create: { full_name: 'สมชาย ขับดี', phone: '0812345678', is_active: true },
     });
     const driver2 = await prisma.driver.upsert({
         where: { driver_id: 2 }, update: {},
-        create: { full_name: 'สมหญิง ใจดี', phone: '082-345-6789', is_active: true },
+        create: { full_name: 'สมหญิง ใจดี', phone: '0823456789', is_active: true },
     });
     console.log(`✅ Created 2 drivers`);
 
@@ -90,7 +90,7 @@ async function main() {
     const garage1 = await prisma.garage.upsert({
         where: { garage_id: 1 }, update: {},
         create: {
-            garage_name: 'ศูนย์บริการ Toyota สุขุมวิท', phone: '02-111-2222',
+            garage_name: 'ศูนย์บริการ Toyota สุขุมวิท', phone: '021112222',
             specialization: ['GENERAL', 'ENGINE'],
             address: '123 ถ.สุขุมวิท', sub_district: 'คลองเตย', district: 'คลองเตย',
             province: 'กรุงเทพมหานคร', postal_code: '10110', is_active: true,
@@ -99,7 +99,7 @@ async function main() {
     const garage2 = await prisma.garage.upsert({
         where: { garage_id: 2 }, update: {},
         create: {
-            garage_name: 'อู่ช่างเสกสรร', phone: '081-999-8888',
+            garage_name: 'อู่ช่างเสกสรร', phone: '0819998888',
             specialization: ['SUSPENSION', 'TIRES'],
             address: '456 ถ.พระราม 4', sub_district: 'พระโขนง', district: 'คลองเตย',
             province: 'กรุงเทพมหานคร', postal_code: '10260', is_active: true,

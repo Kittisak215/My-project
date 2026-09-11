@@ -20,13 +20,13 @@ export default function LoginPage() {
     try {
       const res = await api.post("/auth/login", data);
       login(res.data.token, res.data.user);
-      toast.success("เข้าสู่ระบบสำเร็จ!");
+      toast.success("เข้าสู่ระบบสำเร็จ!", { toastId: "login-success" });
       const role = res.data.user.role;
       if (role === "ADMIN") navigate("/admin");
       else if (role === "EXECUTIVE") navigate("/executive");
       else navigate("/driver");
     } catch (err) {
-      toast.error(err.response?.data?.message || "เข้าสู่ระบบไม่สำเร็จ");
+      toast.error(err.response?.data?.message || "เข้าสู่ระบบไม่สำเร็จ", { toastId: "login-error" });
     }
   };
 

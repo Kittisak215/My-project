@@ -5,6 +5,7 @@ import useAuthStore from '../../store/authStore';
 import api from '../../lib/axios';
 import { toast } from 'react-toastify';
 import clsx from 'clsx';
+import { formatPhone } from '../../utils/format';
 
 export default function ProfilePage() {
     const { user } = useAuthStore();
@@ -33,7 +34,7 @@ export default function ProfilePage() {
     };
 
     const displayName = user?.full_name || user?.driver?.full_name || '-';
-    const displayPhone = user?.driver?.phone || user?.phone || '-';
+    const displayPhone = formatPhone(user?.driver?.phone || user?.phone);
     const displayUsername = user?.username || '-';
 
     return (

@@ -16,6 +16,7 @@ import api from "../../lib/axios";
 import { toast } from "react-toastify";
 import clsx from "clsx";
 import Skeleton from "../../components/Skeleton";
+import { formatPhone } from "../../utils/format";
 
 const repairTypeLabel = {
   GENERAL: "🔧 ซ่อมทั่วไป",
@@ -239,7 +240,9 @@ export default function DriverHistoryPage() {
                               {r.garage.garage_name}
                             </p>
                             {r.garage.phone && (
-                              <p className="text-slate-400">{r.garage.phone}</p>
+                              <p className="text-slate-400 font-mono">
+                                {formatPhone(r.garage.phone)}
+                              </p>
                             )}
                           </div>
                         </div>
@@ -340,9 +343,15 @@ export default function DriverHistoryPage() {
                         </p>
                         {(r.parts_cost || r.labor_cost) && (
                           <div className="text-[11px] text-slate-500 mt-1 sm:text-right space-x-1.5">
-                            <span>อะไหล่: ฿{parseFloat(r.parts_cost || 0).toLocaleString()}</span>
+                            <span>
+                              อะไหล่: ฿
+                              {parseFloat(r.parts_cost || 0).toLocaleString()}
+                            </span>
                             <span>•</span>
-                            <span>ค่าแรง: ฿{parseFloat(r.labor_cost || 0).toLocaleString()}</span>
+                            <span>
+                              ค่าแรง: ฿
+                              {parseFloat(r.labor_cost || 0).toLocaleString()}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -354,7 +363,10 @@ export default function DriverHistoryPage() {
                 <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {r.receipt_image ? (
-                      <button onClick={() => setViewReceipt(r.receipt_image)} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 cursor-pointer">
+                      <button
+                        onClick={() => setViewReceipt(r.receipt_image)}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 cursor-pointer"
+                      >
                         <ImageIcon size={14} /> ดูสลิปใบเสร็จ
                       </button>
                     ) : (
@@ -364,10 +376,23 @@ export default function DriverHistoryPage() {
                     )}
                   </div>
                   {r.status !== "COMPLETED" && r.status !== "REJECTED" && (
-                     <label className="cursor-pointer flex items-center gap-1.5 text-xs font-semibold bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors shadow-sm">
-                       <Upload size={14} /> {r.receipt_image ? "อัปโหลดใหม่" : "อัปโหลดสลิป"}
-                       <input type="file" className="hidden" accept="image/*" onChange={(e) => { if(e.target.files[0]) handleUploadReceipt(r.request_id || r.id, e.target.files[0]); e.target.value = null; }} />
-                     </label>
+                    <label className="cursor-pointer flex items-center gap-1.5 text-xs font-semibold bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors shadow-sm">
+                      <Upload size={14} />{" "}
+                      {r.receipt_image ? "อัปโหลดใหม่" : "อัปโหลดสลิป"}
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(e) => {
+                          if (e.target.files[0])
+                            handleUploadReceipt(
+                              r.request_id || r.id,
+                              e.target.files[0],
+                            );
+                          e.target.value = null;
+                        }}
+                      />
+                    </label>
                   )}
                 </div>
               </div>
@@ -397,18 +422,27 @@ export default function DriverHistoryPage() {
           </button>
         </div>
       )}
-
       {/* Receipt Image Modal */}
       {viewReceipt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200" onClick={() => setViewReceipt(null)}>
-          <div className="relative max-w-3xl w-full flex flex-col items-center animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200"
+          onClick={() => setViewReceipt(null)}
+        >
+          <div
+            className="relative max-w-3xl w-full flex flex-col items-center animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setViewReceipt(null)}
               className="absolute -top-12 right-0 p-2 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full transition-colors cursor-pointer"
             >
               <X size={24} />
             </button>
-            <img src={viewReceipt} alt="Receipt" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" />
+            <img
+              src={viewReceipt}
+              alt="Receipt"
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+            />
           </div>
         </div>
       )}

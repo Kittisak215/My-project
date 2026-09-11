@@ -102,11 +102,15 @@ export default function MileagePage() {
     const hasWarning = liveMaintenanceAlerts.some(a => a.isWarning);
     const criticalAlerts = liveMaintenanceAlerts.filter(a => a.isOverdue || a.isWarning);
 
+    const onFormError = (formErrors) => {
+        const firstErr = Object.values(formErrors)[0]?.message;
+        if (firstErr) toast.error(firstErr);
+    };
+
     const onSubmit = async (data) => {
-        if (!selectedVehicle) return;
-        if (calculatedDistance > 2500) {
-            const confirmed = window.confirm(`ระยะทางเพิ่มขึ้น ${calculatedDistance.toLocaleString()} กม. ซึ่งสูงกว่าปกติมาก คุณแน่ใจหรือไม่ว่ากรอกเลขไมล์ถูกต้อง?`);
-            if (!confirmed) return;
+        if (!selectedVehicle) {
+            toast.error("ไม่พบข้อมูลยานพาหนะที่เลือก");
+            return;
         }
         setSubmitting(true);
         try {
@@ -116,7 +120,8 @@ export default function MileagePage() {
             const res = await api.post('/mileage', {
                 vehicle_id: selectedVehicle.vehicle_id || selectedVehicle.id,
                 record_date: localDate,
-                mileage_end: parseInt(data.mileage)
+                mileage_end: parseInt(data.mileage),
+                recorded_by: user?.driver_id || selectedVehicle?.driver_id,
             });
 
             // ตรวจสอบว่ามี warning หลังเซฟหรือไม่ (ทั้งจาก backend และจาก live calculation)
@@ -261,7 +266,7 @@ export default function MileagePage() {
                             <h2 className="text-base md:text-lg font-bold text-slate-800">📌 ฟอร์มบันทึกเลขไมล์</h2>
                         </div>
 
-                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                        <form onSubmit={handleSubmit(onSubmit, onFormError)} className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">

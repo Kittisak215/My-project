@@ -164,9 +164,9 @@ exports.getAdminNotifications = async (req, res) => {
     try {
         const notifications = [];
 
-        // 1. คำร้องซ่อม (PENDING, AWAITING_APPROVAL, APPROVED, REJECTED)
+        // 1. คำร้องซ่อมที่ต้องดำเนินการ (PENDING, AWAITING_APPROVAL)
         const repairs = await prisma.repairRequest.findMany({
-            where: { status: { in: ['PENDING', 'AWAITING_APPROVAL', 'APPROVED', 'REJECTED'] } },
+            where: { status: { in: ['PENDING', 'AWAITING_APPROVAL'] } },
             include: { vehicle: { select: { license_plate: true } } },
             orderBy: { created_at: 'desc' },
             take: 20
@@ -175,14 +175,10 @@ exports.getAdminNotifications = async (req, res) => {
         const statusLabel = {
             PENDING: 'คำร้องซ่อมใหม่ (รอตรวจสอบ)',
             AWAITING_APPROVAL: 'รออนุมัติ',
-            APPROVED: 'คำร้องซ่อมได้รับการอนุมัติแล้ว',
-            REJECTED: 'คำร้องซ่อมถูกปฏิเสธ',
         };
         const statusType = {
             PENDING: 'warning',
             AWAITING_APPROVAL: 'warning',
-            APPROVED: 'success',
-            REJECTED: 'error',
         };
 
         for (const r of repairs) {
