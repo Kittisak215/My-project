@@ -39,6 +39,16 @@ exports.updateUser = async (req, res) => {
         if (role) data.role = role;
         if (is_active !== undefined) data.is_active = is_active;
 
+        if (role && role !== 'DRIVER') {
+            const targetUser = await prisma.user.findUnique({ where: { user_id: parseInt(id) } });
+            if (targetUser?.driver_id) {
+                await prisma.vehicle.updateMany({
+                    where: { driver_id: targetUser.driver_id },
+                    data: { driver_id: null }
+                });
+            }
+        }
+
         const updated = await prisma.user.update({
             where: { user_id: parseInt(id) },
             data

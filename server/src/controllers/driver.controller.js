@@ -4,7 +4,13 @@ exports.getAll = async (req, res) => {
     try {
         const { search, is_active, page = 1, limit = 10 } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
-        const where = {};
+        const where = {
+            NOT: {
+                userAccount: {
+                    role: { in: ['ADMIN', 'EXECUTIVE'] }
+                }
+            }
+        };
         if (search) where.OR = [{ full_name: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }];
         if (is_active !== undefined) where.is_active = is_active === 'true';
         const [drivers, total] = await Promise.all([
