@@ -6,12 +6,11 @@ import {
   Bell,
   Banknote,
   RefreshCw,
-  ShieldCheck,
-  Activity,
   Zap,
   CheckCircle2,
   AlertTriangle,
   ClipboardList,
+  ArrowRight,
 } from "lucide-react";
 import StatusBadge from "../../components/StatusBadge";
 import MaintenanceForecastCard from "../../components/MaintenanceForecastCard";
@@ -24,10 +23,6 @@ const ANIM_STYLE = `
 @keyframes fadeSlideUp {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes pulseRing {
-  0%, 100% { transform: scale(1); opacity: 0.7; }
-  50%       { transform: scale(1.5); opacity: 0; }
 }
 @keyframes countUp {
   from { opacity: 0; transform: scale(0.85); }
@@ -99,64 +94,31 @@ function KpiCard({
   label,
   value,
   unit,
-  subLabel,
-  subValue,
-  breakdown,
-  accentColor,
-  iconBg,
   icon,
+  iconClass,
+  valueClass = "text-slate-900",
   delay = 0,
 }) {
   return (
     <div
-      className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md group cursor-default flex flex-col justify-between transition-all duration-200"
+      className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-sm hover:shadow-md group flex items-start justify-between gap-3 transition-all duration-200"
       style={{ animation: `fadeSlideUp 0.4s ease-out ${delay}ms both` }}
     >
-      <div className="flex items-start justify-between w-full">
-        <div>
-          <p className="text-xs font-semibold text-slate-500 mb-1">{label}</p>
-          <h3
-            className="text-2xl font-extrabold text-slate-800"
-            style={{ animation: `countUp 0.4s ease-out ${delay + 100}ms both` }}
-          >
-            {value}{" "}
-            <span className="text-sm font-medium text-slate-400">{unit}</span>
-          </h3>
-          {subLabel && (
-            <p
-              className="text-xs font-medium mt-1"
-              style={{ color: accentColor }}
-            >
-              {subLabel} {subValue}
-            </p>
-          )}
-        </div>
-        <div
-          className="p-3 rounded-2xl shrink-0 transition-transform duration-300 group-hover:scale-110"
-          style={{ background: iconBg }}
+      <div>
+        <p className="text-xs font-semibold text-slate-500 mb-1">{label}</p>
+        <h3
+          className={`text-xl md:text-2xl font-extrabold ${valueClass}`}
+          style={{ animation: `countUp 0.4s ease-out ${delay + 100}ms both` }}
         >
-          {icon}
-        </div>
+          {value}{" "}
+          <span className="text-sm font-medium text-slate-400">{unit}</span>
+        </h3>
       </div>
-      {breakdown && breakdown.length > 0 && (
-        <div className="pl-3 mt-3 flex flex-wrap gap-1.5">
-          {breakdown.map(
-            (item, idx) =>
-              item.val > 0 && (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold bg-slate-50 text-slate-600 border border-slate-100"
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: item.color || accentColor }}
-                  ></span>
-                  {item.label}: {item.val}
-                </span>
-              ),
-          )}
-        </div>
-      )}
+      <div
+        className={`p-2.5 rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-105 ${iconClass}`}
+      >
+        {icon}
+      </div>
     </div>
   );
 }
@@ -169,6 +131,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,13 +141,14 @@ export default function AdminDashboard() {
         if (!cancelled) {
           setLoading(false);
           setError(false);
+          setLastUpdated(new Date());
           
-          // Filter out resolved alerts so they don't clutter the dashboard
-          if (res.data && res.data.maintenanceAlerts) {
-              res.data.maintenanceAlerts = res.data.maintenanceAlerts.filter(a => !a.is_resolved);
-          }
-          
-          setData(res.data);
+          setData({
+            ...res.data,
+            maintenanceAlerts: (res.data?.maintenanceAlerts || []).filter(
+              (alert) => !alert.is_resolved,
+            ),
+          });
         }
       })
       .catch(() => {
@@ -251,113 +215,75 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* ── Command Banner ── */}
-      <div
-        className="relative overflow-hidden rounded-3xl text-white p-6 md:p-8"
-        style={{
-            background: 'linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #3b0764 100%)',
-            boxShadow: '0 10px 30px -10px rgba(124,58,237,0.4)',
-            animation: 'fadeSlideUp 0.45s ease-out both',
-        }}
-      >
-        {/* Ambient glow blobs */}
-        <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-20"
-            style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.8), transparent 70%)' }} />
-        <div className="pointer-events-none absolute -bottom-16 -left-10 w-56 h-56 rounded-full opacity-20"
-            style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.6), transparent 70%)' }} />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div>
-            <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-violet-100 border border-white/20 backdrop-blur-sm">
-              <ShieldCheck size={13} className="text-violet-300" />
-              <span>System Administrator</span>
-              <span className="relative flex h-2 w-2 ml-0.5">
-                <span
-                  className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"
-                  style={{ animation: "pulseRing 1.8s ease-out infinite" }}
-                />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-              </span>
-              <span className="text-emerald-300 ml-0.5">Live</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
-              ภาพรวมระบบ (Dashboard)
-            </h1>
-            <p className="text-sm text-violet-200 mt-1.5 max-w-lg">
-              สรุปสถานะรถยนต์ คำร้องซ่อม และแจ้งเตือนบำรุงรักษาทั้งหมดในระบบ
-            </p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0 flex-wrap">
-            <div className="flex items-center gap-3 rounded-2xl px-5 py-4 bg-white/10 backdrop-blur-md border border-white/10">
-              <div className="p-2.5 rounded-xl bg-emerald-500/20">
-                <Car size={20} className="text-emerald-400" />
-              </div>
-              <div>
-                <div className="text-xs font-medium text-violet-200 mb-0.5">
-                  รถพร้อมใช้
-                </div>
-                <div className="text-2xl font-extrabold text-white leading-none">
-                  {stats.readyVehicles || 0}{" "}
-                  <span className="text-sm font-medium text-violet-200">
-                    คัน
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 rounded-2xl px-5 py-4 bg-white/10 backdrop-blur-md border border-white/10">
-              <div className="p-2.5 rounded-xl bg-amber-500/20">
-                <ClipboardList size={20} className="text-amber-400" />
-              </div>
-              <div>
-                <div className="text-xs font-medium text-violet-200 mb-0.5">
-                  รออนุมัติ
-                </div>
-                <div className="text-2xl font-extrabold text-white leading-none">
-                  {stats.pendingRepairs || 0}{" "}
-                  <span className="text-sm font-medium text-violet-200">
-                    รายการ
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold text-violet-700 mb-1">ภาพรวมการจัดการ</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
+            แดชบอร์ดผู้ดูแลระบบ
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            สถานะรถยนต์ งานซ่อม และการบำรุงรักษา
+          </p>
         </div>
-
-        <div className="relative z-10 mt-5 pt-4 border-t border-white/10 flex flex-wrap items-center gap-6">
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-violet-200">
-              ค่าซ่อมเดือนนี้
-            </span>
-            <div className="text-xl font-extrabold text-white mt-0.5">
-              ฿
-              {(stats.monthlyExpense || 0).toLocaleString("th-TH", {
-                minimumFractionDigits: 2,
+        <div className="flex items-center justify-between sm:justify-end gap-3">
+          {lastUpdated && (
+            <p className="text-xs text-slate-500">
+              อัปเดตล่าสุด{" "}
+              {lastUpdated.toLocaleTimeString("th-TH", {
+                hour: "2-digit",
+                minute: "2-digit",
               })}
-            </div>
-          </div>
-          <div className="h-8 w-px bg-white/20" />
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-violet-200">
-              แจ้งเตือนครบระยะ
-            </span>
-            <div className="flex items-center gap-2 mt-0.5">
-              <div className="text-xl font-extrabold text-white">
-                {stats.overdueAlerts || 0}
-              </div>
-              {(stats.overdueAlerts || 0) > 0 ? (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
-                  <AlertTriangle size={12} /> ต้องดำเนินการ
-                </span>
-              ) : (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                  <CheckCircle2 size={12} /> ปกติ
-                </span>
-              )}
-            </div>
-          </div>
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => setRetryKey((key) => key + 1)}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+            aria-label="รีเฟรชข้อมูลแดชบอร์ด"
+          >
+            <RefreshCw size={15} />
+            รีเฟรช
+          </button>
         </div>
       </div>
 
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+        <KpiCard
+          label="รถพร้อมใช้"
+          value={stats.readyVehicles || 0}
+          unit="คัน"
+          icon={<Car size={19} />}
+          iconClass="bg-emerald-50 text-emerald-700"
+          delay={0}
+        />
+        <KpiCard
+          label="คำร้องรออนุมัติ"
+          value={stats.pendingRepairs || 0}
+          unit="รายการ"
+          icon={<ClipboardList size={19} />}
+          iconClass="bg-amber-50 text-amber-700"
+          delay={50}
+        />
+        <KpiCard
+          label="แจ้งเตือนเลยกำหนด"
+          value={stats.overdueAlerts || 0}
+          unit="รายการ"
+          icon={<AlertTriangle size={19} />}
+          iconClass="bg-rose-50 text-rose-700"
+          valueClass={(stats.overdueAlerts || 0) > 0 ? "text-rose-700" : "text-slate-900"}
+          delay={100}
+        />
+        <KpiCard
+          label="ค่าซ่อมเดือนนี้"
+          value={`฿${(stats.monthlyExpense || 0).toLocaleString("th-TH", {
+            minimumFractionDigits: 2,
+          })}`}
+          unit=""
+          icon={<Banknote size={19} />}
+          iconClass="bg-violet-50 text-violet-700"
+          delay={150}
+        />
+      </div>
 
       {/* ── Tables ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -387,9 +313,18 @@ export default function AdminDashboard() {
                 รายการที่ยังไม่ได้แก้ไข
               </p>
             </div>
-            <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full">
-              {data?.maintenanceAlerts?.length || 0} รายการ
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full">
+                {data?.maintenanceAlerts?.length || 0} รายการ
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate("/admin/alerts")}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 hover:text-violet-900 whitespace-nowrap"
+              >
+                ดูทั้งหมด <ArrowRight size={13} />
+              </button>
+            </div>
           </div>
           <div className="md:hidden divide-y divide-slate-50">
             {!data?.maintenanceAlerts?.length && (
@@ -402,7 +337,16 @@ export default function AdminDashboard() {
               <div
                 key={alert.alert_id}
                 onClick={() => navigate('/admin/alerts', { state: { openAlertId: alert.alert_id } })}
-                className="p-4 hover:bg-violet-50/30 transition-colors cursor-pointer"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    navigate('/admin/alerts', { state: { openAlertId: alert.alert_id } });
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`เปิดการแจ้งเตือน ${alert.vehicle?.license_plate || ""}`}
+                className="p-4 hover:bg-violet-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 transition-colors cursor-pointer"
               >
                 <div className="flex items-center justify-between">
                   <p className="font-semibold text-slate-800 text-sm">
@@ -455,7 +399,15 @@ export default function AdminDashboard() {
                   <tr
                     key={alert.alert_id}
                     onClick={() => navigate('/admin/alerts', { state: { openAlertId: alert.alert_id } })}
-                    className="transition-colors duration-150 cursor-pointer"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        navigate('/admin/alerts', { state: { openAlertId: alert.alert_id } });
+                      }
+                    }}
+                    tabIndex={0}
+                    aria-label={`เปิดการแจ้งเตือน ${alert.vehicle?.license_plate || ""}`}
+                    className="transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:bg-violet-50"
                     onMouseEnter={(e) =>
                       (e.currentTarget.style.background = "#faf5ff")
                     }
@@ -507,6 +459,13 @@ export default function AdminDashboard() {
                 รายการรอตรวจสอบและรออนุมัติ
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => navigate("/admin/repairs")}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 hover:text-violet-900 whitespace-nowrap"
+            >
+              ดูทั้งหมด <ArrowRight size={13} />
+            </button>
           </div>
           <div className="md:hidden divide-y divide-slate-50">
             {!data?.recentRepairs?.length && (
@@ -519,7 +478,16 @@ export default function AdminDashboard() {
               <div
                 key={r.request_id}
                 onClick={() => navigate('/admin/repairs', { state: { openRequestId: r.request_id } })}
-                className="p-4 hover:bg-violet-50/30 transition-colors cursor-pointer"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    navigate('/admin/repairs', { state: { openRequestId: r.request_id } });
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`เปิดคำร้องซ่อม ${r.vehicle?.license_plate || ""}`}
+                className="p-4 hover:bg-violet-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 transition-colors cursor-pointer"
               >
                 <div className="flex items-center justify-between mb-1">
                   <p className="font-semibold text-slate-800 text-sm">
@@ -577,7 +545,15 @@ export default function AdminDashboard() {
                   <tr
                     key={r.request_id}
                     onClick={() => navigate('/admin/repairs', { state: { openRequestId: r.request_id } })}
-                    className="transition-colors duration-150 cursor-pointer"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        navigate('/admin/repairs', { state: { openRequestId: r.request_id } });
+                      }
+                    }}
+                    tabIndex={0}
+                    aria-label={`เปิดคำร้องซ่อม ${r.vehicle?.license_plate || ""}`}
+                    className="transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:bg-violet-50"
                     onMouseEnter={(e) =>
                       (e.currentTarget.style.background = "#faf5ff")
                     }
