@@ -264,7 +264,7 @@ export default function DriversPage() {
                 setPage(1);
               }}
               placeholder="ค้นหาชื่อ, เบอร์โทร..."
-              className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 w-full sm:w-56"
+              className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-500 w-full sm:w-56"
             />
           </div>
           <select
@@ -273,7 +273,7 @@ export default function DriversPage() {
               setStatus(e.target.value);
               setPage(1);
             }}
-            className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500"
+            className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-purple-500"
           >
             <option value="">สถานะทั้งหมด</option>
             <option value="true">ปฏิบัติงาน</option>
@@ -330,11 +330,11 @@ export default function DriversPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedDriverVehicles(d)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full text-xs font-semibold border border-blue-200 transition-all cursor-pointer shadow-xs active:scale-95"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-full text-xs font-semibold border border-purple-200 transition-all cursor-pointer shadow-xs active:scale-95"
                       >
-                        <Car size={13} className="text-blue-600" />
+                        <Car size={13} className="text-purple-600" />
                         <span>{d.vehicles.length} คัน</span>
-                        <span className="text-[10px] text-blue-500 font-normal underline ml-0.5">ดูทะเบียน</span>
+                        <span className="text-[10px] text-purple-500 font-normal underline ml-0.5">ดูทะเบียน</span>
                       </button>
                     ) : (
                       <span className="text-slate-400 text-xs">ไม่มีรถในความดูแล</span>
@@ -441,10 +441,10 @@ export default function DriversPage() {
                         <button
                           type="button"
                           onClick={() => setSelectedDriverVehicles(d)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full text-xs font-semibold border border-blue-200 transition-all cursor-pointer shadow-xs active:scale-95"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-full text-xs font-semibold border border-purple-200 transition-all cursor-pointer shadow-xs active:scale-95"
                           title="คลิกเพื่อดูรายการป้ายทะเบียน"
                         >
-                          <Car size={13} className="text-blue-600" />
+                          <Car size={13} className="text-purple-600" />
                           <span>{d.vehicles.length} คัน</span>
                         </button>
                       ) : (
@@ -631,11 +631,11 @@ export default function DriversPage() {
 
             {/* ส่วนบัญชีล็อกอิน — แสดงเฉพาะตอนสร้างใหม่ */}
             {!editing && (
-              <div className="border border-indigo-100 bg-gradient-to-br from-indigo-50/80 to-white rounded-2xl p-5 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+              <div className="border border-purple-100 bg-gradient-to-br from-purple-50/80 to-white rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200/30 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
                 <div className="flex items-center gap-2 mb-4 relative z-10">
-                  <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-                  <p className="text-xs font-bold text-indigo-800 uppercase tracking-wider">
+                  <div className="w-1.5 h-4 bg-purple-500 rounded-full"></div>
+                  <p className="text-xs font-bold text-purple-800 uppercase tracking-wider">
                     ข้อมูลบัญชีล็อกอิน
                   </p>
                 </div>
@@ -651,7 +651,7 @@ export default function DriversPage() {
                     <input
                       {...register("username")}
                       placeholder={watchPhone || "เบอร์โทรศัพท์"}
-                      className="block w-full border border-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all bg-white/70 hover:bg-white shadow-sm"
+                      className="block w-full border border-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 transition-all bg-white/70 hover:bg-white shadow-sm"
                     />
                   </div>
                   <div>
@@ -672,12 +672,12 @@ export default function DriversPage() {
                             ? "••••••••"
                             : "เบอร์โทรศัพท์"
                         }
-                        className="block w-full border border-white rounded-xl pl-4 pr-11 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all bg-white/70 hover:bg-white shadow-sm"
+                        className="block w-full border border-white rounded-xl pl-4 pr-11 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 transition-all bg-white/70 hover:bg-white shadow-sm"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-indigo-600 transition-colors"
+                        className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-purple-600 transition-colors"
                         title={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
                       >
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -685,7 +685,7 @@ export default function DriversPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-start gap-2 mt-4 pt-3 border-t border-indigo-100/50">
+                <div className="flex items-start gap-2 mt-4 pt-3 border-t border-purple-100/50">
                   <span className="text-amber-500 text-sm">💡</span>
                   <p className="text-[11px] text-slate-500 leading-tight">
                     <span className="font-semibold text-slate-600">
@@ -739,9 +739,9 @@ export default function DriversPage() {
           onClose={() => setSelectedDriverVehicles(null)}
         >
           <div className="space-y-4">
-            <div className="flex items-center justify-between bg-blue-50/60 p-3 rounded-xl border border-blue-100">
-              <div className="flex items-center gap-2 text-blue-800 text-xs font-semibold">
-                <Car size={16} className="text-blue-600" />
+            <div className="flex items-center justify-between bg-purple-50/60 p-3 rounded-xl border border-purple-100">
+              <div className="flex items-center gap-2 text-purple-800 text-xs font-semibold">
+                <Car size={16} className="text-purple-600" />
                 <span>จำนวนทั้งหมด {selectedDriverVehicles.vehicles?.length || 0} คัน</span>
               </div>
               <span className="text-xs text-slate-500">
@@ -757,7 +757,7 @@ export default function DriversPage() {
                     className="flex items-center justify-between bg-slate-50 hover:bg-slate-100 p-3 rounded-xl border border-slate-200 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
                         <Car size={18} />
                       </div>
                       <div>

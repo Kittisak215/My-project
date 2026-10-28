@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const alertService = require('../services/alert.service');
 
 exports.getAll = async (req, res) => {
     try {
@@ -183,16 +184,7 @@ exports.recalculate = async (req, res) => {
     } catch (err) { res.status(400).json({ message: err.message }); }
 };
 
-// Helper: ดึงระยะทางน้ำมันเครื่องตามเกรด จาก VehicleType
-function getOilIntervalByGrade(oilGrade, vehicle) {
-    const vt = vehicle.vehicleType;
-    const defaults = { MINERAL: 5000, SEMI_SYNTHETIC: 7000, FULLY_SYNTHETIC: 10000 };
-    if (oilGrade === 'MINERAL') return vt?.oil_interval_mineral_km ?? defaults.MINERAL;
-    if (oilGrade === 'SEMI_SYNTHETIC') return vt?.oil_interval_semi_synthetic_km ?? defaults.SEMI_SYNTHETIC;
-    if (oilGrade === 'FULLY_SYNTHETIC') return vt?.oil_interval_fully_synthetic_km ?? defaults.FULLY_SYNTHETIC;
-    // Fallback: ใช้ fully synthetic
-    return vt?.oil_interval_fully_synthetic_km ?? defaults.FULLY_SYNTHETIC;
-}
+
 
 exports.getForecast = async (req, res) => {
     try {
@@ -225,7 +217,7 @@ exports.getForecast = async (req, res) => {
                 select: { oil_grade: true }
             });
             const lastOilGrade = lastOilRepair?.oil_grade || null;
-            const oilInterval = getOilIntervalByGrade(lastOilGrade || 'FULLY_SYNTHETIC', v);
+            const oilInterval = alertService.getOilIntervalByGrade(lastOilGrade || 'FULLY_SYNTHETIC', v);
 
             const calculateTypeForecast = async (type, interval) => {
                 const pendingAlert = v.alerts.find(a => a.alert_type === type);

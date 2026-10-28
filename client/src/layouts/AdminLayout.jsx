@@ -6,7 +6,6 @@ import {
   Wrench,
   Building2,
   Bell,
-  CheckSquare,
   LogOut,
   Menu,
   X,
