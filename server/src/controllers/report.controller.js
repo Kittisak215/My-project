@@ -88,7 +88,7 @@ exports.executiveDashboard = async (req, res) => {
             }),
             prisma.repairRequest.findMany({
                 where: { status: 'COMPLETED' },
-                select: { total_cost: true, created_at: true }
+                select: { total_cost: true, parts_cost: true, labor_cost: true, repair_type: true, created_at: true }
             })
         ]);
 
@@ -103,11 +103,40 @@ exports.executiveDashboard = async (req, res) => {
 
         const totalMileageAgg = await prisma.mileageLog.aggregate({ _sum: { distance_km: true } });
 
-        // Calculate yearly expenses breakdown from actual database records
+        // Calculate yearly, monthly (current year), and category expenses from actual database records
+        const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        const monthlyExpenses = thaiMonths.map((label, idx) => ({
+            month: idx + 1,
+            label,
+            partsCost: 0,
+            laborCost: 0,
+            totalCost: 0,
+            count: 0,
+        }));
+        const categoryMap = {};
         const yearlyExpenseMap = {};
+
         allCompletedRepairs.forEach(r => {
-            const yr = new Date(r.created_at).getFullYear();
-            yearlyExpenseMap[yr] = (yearlyExpenseMap[yr] || 0) + Number(r.total_cost || 0);
+            const d = new Date(r.created_at);
+            const yr = d.getFullYear();
+            const total = Number(r.total_cost || 0);
+            const parts = r.parts_cost != null ? Number(r.parts_cost) : total;
+            const labor = r.labor_cost != null ? Number(r.labor_cost) : 0;
+
+            yearlyExpenseMap[yr] = (yearlyExpenseMap[yr] || 0) + total;
+
+            if (yr === thisYear) {
+                const m = d.getMonth();
+                monthlyExpenses[m].partsCost += parts;
+                monthlyExpenses[m].laborCost += labor;
+                monthlyExpenses[m].totalCost += total;
+                monthlyExpenses[m].count += 1;
+
+                const cat = r.repair_type || 'GENERAL';
+                if (!categoryMap[cat]) categoryMap[cat] = { type: cat, totalCost: 0, count: 0 };
+                categoryMap[cat].totalCost += total;
+                categoryMap[cat].count += 1;
+            }
         });
 
         if (yearlyExpenseMap[thisYear] === undefined) {
@@ -123,6 +152,8 @@ exports.executiveDashboard = async (req, res) => {
             };
         });
 
+        const categoryExpenses = Object.values(categoryMap).sort((a, b) => b.totalCost - a.totalCost);
+
         res.json({
             stats: {
                 yearlyExpense: Number(yearlyAgg._sum.total_cost || 0),
@@ -134,6 +165,8 @@ exports.executiveDashboard = async (req, res) => {
                 unavailableVehicles: Math.max(0, totalVehicles - readyVehicles),
             },
             yearlyExpenses,
+            monthlyExpenses,
+            categoryExpenses,
             topVehicles: topVehicles.map(t => ({
                 vehicle: tvMap[t.vehicle_id],
                 totalCost: Number(t._sum.total_cost || 0),

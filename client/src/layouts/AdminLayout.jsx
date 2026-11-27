@@ -114,105 +114,72 @@ function AdminNotificationBell() {
   useEffect(() => {
     fetchNotifications();
     const socket = getSocket();
-    const onNewNotification = () => {
-      fetchNotifications();
-    };
-
+    const onNewNotification = () => fetchNotifications();
     socket.on("new_notification", onNewNotification);
-
-    return () => {
-      socket.off("new_notification", onNewNotification);
-    };
+    return () => socket.off("new_notification", onNewNotification);
   }, [fetchNotifications]);
 
   useEffect(() => {
     const handler = (e) => {
-      if (panelRef.current && !panelRef.current.contains(e.target))
-        setOpen(false);
+      if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   const iconMap = {
-    success: (
-      <CheckCircle size={16} className="text-emerald-500 shrink-0 mt-0.5" />
-    ),
-    warning: (
-      <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
-    ),
-    error: <XCircle size={16} className="text-red-500 shrink-0 mt-0.5" />,
-    info: <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />,
-  };
-  const bgMap = {
-    success: "bg-emerald-50 border-emerald-100",
-    warning: "bg-amber-50 border-amber-100",
-    error: "bg-red-50 border-red-100",
-    info: "bg-blue-50 border-blue-100",
+    success: <CheckCircle size={16} className="text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />,
+    warning: <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />,
+    error: <XCircle size={16} className="text-red-600 shrink-0 mt-0.5" aria-hidden="true" />,
+    info: <Info size={16} className="text-sky-600 shrink-0 mt-0.5" aria-hidden="true" />,
   };
 
   return (
     <div className="relative" ref={panelRef}>
       <button
+        type="button"
         onClick={handleToggle}
-        className="relative p-2.5 rounded-xl text-slate-500 hover:text-[#8A1ABA] hover:bg-purple-50 transition-all border border-slate-200/70 shadow-2xs"
-        title="การแจ้งเตือน"
+        aria-label="การแจ้งเตือนระบบ"
+        aria-expanded={open}
+        className="relative p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors border border-slate-200/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA] cursor-pointer"
       >
-        <Bell
-          size={19}
-          className={clsx(
-            "transition-colors",
-            unreadCount > 0 && "text-[#8A1ABA]",
-          )}
-        />
+        <Bell size={18} className={clsx(unreadCount > 0 && "text-[#8A1ABA]")} aria-hidden="true" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-            <span className="relative inline-flex items-center justify-center rounded-full h-4 w-4 bg-rose-500 text-[10px] font-bold text-white shadow-2xs leading-none">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white leading-none tabular-nums">
+            {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl shadow-purple-950/15 border border-purple-100/60 z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
-            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <Bell size={15} className="text-[#8A1ABA]" />
+        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-lg border border-slate-200/90 z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/70">
+            <h3 className="font-semibold text-slate-900 text-sm flex items-center gap-2">
               การแจ้งเตือนระบบ
               {unreadCount > 0 && (
-                <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
+                <span className="text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200/70 px-1.5 py-0.5 rounded-full tabular-nums">
                   {unreadCount} ใหม่
                 </span>
               )}
             </h3>
-            <div className="flex items-center gap-2">
-              {visibleNotifications.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleDismissAll}
-                  className="text-xs text-slate-400 hover:text-[#8A1ABA] font-medium transition-colors cursor-pointer px-2 py-1 rounded-lg hover:bg-slate-200/50"
-                  title="ล้างการแจ้งเตือนทั้งหมด"
-                >
-                  ล้างทั้งหมด
-                </button>
-              )}
-            </div>
+            {visibleNotifications.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDismissAll}
+                className="text-xs text-slate-500 hover:text-[#8A1ABA] font-medium transition-colors px-2 py-1 rounded-md hover:bg-slate-200/50 cursor-pointer"
+              >
+                ล้างทั้งหมด
+              </button>
+            )}
           </div>
 
-          <div className="max-h-[420px] overflow-y-auto divide-y divide-slate-100">
+          <div className="max-h-[400px] overflow-y-auto overscroll-contain divide-y divide-slate-100">
             {loading && visibleNotifications.length === 0 && (
-              <div className="py-8 text-center text-slate-400 text-sm">
-                กำลังโหลด...
-              </div>
+              <div className="py-8 text-center text-slate-400 text-sm">กำลังโหลด…</div>
             )}
             {!loading && visibleNotifications.length === 0 && (
-              <div className="py-8 text-center text-slate-400 text-sm">
-                <CheckCircle
-                  size={28}
-                  className="mx-auto mb-2 text-emerald-400"
-                />
+              <div className="py-10 text-center text-slate-400 text-sm">
+                <CheckCircle size={26} className="mx-auto mb-2 text-emerald-500" aria-hidden="true" />
                 ไม่มีการแจ้งเตือน
               </div>
             )}
@@ -226,30 +193,25 @@ function AdminNotificationBell() {
                   else if (n.category === "MAINTENANCE")
                     navigate("/admin/alerts", { state: { openAlertId: n.data_id } });
                 }}
-                className={clsx(
-                  "p-3.5 flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer group",
-                  bgMap[n.type] || "bg-white",
-                )}
+                className="p-3.5 flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer group"
               >
                 {iconMap[n.type] || iconMap.info}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-1">
-                    <p className="text-sm font-semibold text-slate-800 leading-snug truncate">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-slate-900 leading-snug truncate">
                       {n.title}
                     </p>
                     <button
                       type="button"
                       onClick={(e) => handleDismiss(e, n.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all shrink-0 -mr-1 -mt-0.5 cursor-pointer"
-                      title="ปิดการแจ้งเตือนนี้"
+                      aria-label="ปิดการแจ้งเตือนนี้"
+                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors shrink-0 -mr-1 -mt-0.5 cursor-pointer"
                     >
-                      <X size={14} />
+                      <X size={14} aria-hidden="true" />
                     </button>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
-                    {n.body}
-                  </p>
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{n.body}</p>
+                  <p className="text-[11px] text-slate-400 mt-1 tabular-nums">
                     {new Date(n.created_at).toLocaleString("th-TH")}
                   </p>
                 </div>
@@ -266,121 +228,130 @@ export default function AdminLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Handle clicking the alerts nav
-  const handleAlertsClick = () => {
-    setSidebarOpen(false);
-  };
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
+
   const displayName = user?.full_name || user?.username || "Admin";
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
-    <div className="bg-slate-100 flex h-screen overflow-hidden print:h-auto print:overflow-visible print:bg-white">
+    <div className="bg-[#F5F1FA] flex h-screen overflow-hidden print:h-auto print:overflow-visible print:bg-white">
       {/* Sidebar */}
       <aside
         className={clsx(
-          "w-64 bg-[#8A1ABA] text-white flex flex-col fixed inset-y-0 left-0 z-50 transition-transform duration-300 md:relative md:translate-x-0 shadow-lg md:shadow-none print:hidden",
+          "w-64 bg-gradient-to-b from-[#6B1391] via-[#570F78] to-[#3B0954] text-white flex flex-col fixed inset-y-0 left-0 z-50 transition-transform duration-200 md:relative md:translate-x-0 print:hidden",
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="h-20 flex items-center justify-center px-4 border-b border-white/20 shrink-0">
-          <img
-            src="/logo.png"
-            alt="Logo"
-            className="h-14 w-auto object-contain drop-shadow-sm"
-          />
+        <div className="h-16 flex items-center gap-3 px-5 border-b border-white/15 shrink-0">
+          <div className="p-1 rounded-lg bg-white/15 border border-white/20 shrink-0">
+            <img
+              src="/logo.png"
+              alt="ตรามหาวิทยาลัยราชภัฏบุรีรัมย์"
+              width={32}
+              height={32}
+              className="h-8 w-8 object-contain"
+            />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white leading-tight truncate" translate="no">
+              V-Maintenance
+            </p>
+            <p className="text-[11px] text-purple-200/80 truncate">มหาวิทยาลัยราชภัฏบุรีรัมย์</p>
+          </div>
         </div>
-        <nav className="flex-1 px-4 py-5 space-y-1.5 overflow-y-auto">
+
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label="เมนูหลักผู้ดูแลระบบ">
           {navItems.map((item) => {
             const ItemIcon = item.icon;
-            const isAlertNav = item.to === "/admin/alerts";
             return (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.end}
-                onClick={
-                  isAlertNav ? handleAlertsClick : () => setSidebarOpen(false)
-                }
+                onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
                   clsx(
-                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all relative group",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80",
                     isActive
-                      ? "bg-white/20 text-white font-semibold shadow-xs backdrop-blur-xs"
-                      : "text-white/80 hover:bg-white/10 hover:text-white",
+                      ? "bg-white/20 text-white font-semibold border border-white/15"
+                      : "text-purple-100/80 hover:bg-white/10 hover:text-white font-medium",
                   )
                 }
               >
-                <ItemIcon size={18} className="shrink-0" />
+                <ItemIcon size={18} className="shrink-0" aria-hidden="true" />
                 <span className="flex-1 truncate">{item.label}</span>
               </NavLink>
             );
           })}
-          <hr className="border-white/15 my-4" />
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm text-white/80 hover:bg-white/10 hover:text-white active:bg-white/20 w-full transition-all font-medium"
-          >
-            <LogOut size={18} /> ออกจากระบบ
-          </button>
         </nav>
+
+        <div className="p-3 border-t border-white/15">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-purple-100/85 hover:bg-white/10 hover:text-white w-full transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 cursor-pointer"
+          >
+            <LogOut size={18} aria-hidden="true" />
+            ออกจากระบบ
+          </button>
+        </div>
       </aside>
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden print:hidden"
+          className="fixed inset-0 bg-slate-900/40 z-40 md:hidden print:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0 print:h-auto print:overflow-visible">
-        <header className="h-20 bg-white/95 backdrop-blur-xs border-b border-slate-200/80 shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] flex items-center justify-between px-6 z-40 shrink-0 print:!hidden">
-          <div className="flex items-center gap-3">
+        <header className="h-16 bg-white border-b border-purple-200/70 flex items-center justify-between px-4 md:px-6 z-40 shrink-0 print:hidden">
+          <div className="flex items-center gap-3 min-w-0">
             <button
+              type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="md:hidden text-slate-500 hover:text-slate-700 p-2 rounded-lg hover:bg-slate-100"
+              aria-label="เปิดเมนูนำทาง"
+              className="md:hidden text-slate-600 hover:text-[#8A1ABA] p-2 rounded-lg hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA] cursor-pointer"
             >
-              <Menu size={22} />
+              <Menu size={20} aria-hidden="true" />
             </button>
-            <div className="hidden sm:block">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#8A1ABA]"></span>
-                <h2 className="text-base md:text-lg font-bold text-slate-800 tracking-tight">
-                  ระบบบริหารซ่อมบำรุงหน่วยยานพาหนะ
-                </h2>
-              </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+            <div className="hidden sm:block min-w-0">
+              <p className="text-sm font-semibold text-slate-900 truncate">
+                ระบบบริหารซ่อมบำรุงหน่วยยานพาหนะ
+              </p>
+              <p className="text-xs text-[#8A1ABA]/80 truncate">
                 มหาวิทยาลัยราชภัฏบุรีรัมย์
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 ml-auto">
-            {/* Header Notification Bell */}
             <AdminNotificationBell />
 
-            {/* User Profile Pill */}
-            <div className="flex items-center gap-3 pl-3.5 pr-2 py-1.5 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
+            <div className="flex items-center gap-2.5 pl-3 pr-2 py-1 rounded-xl bg-purple-50/70 border border-purple-200/60">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold text-slate-800 leading-tight">
+                <p className="text-xs font-semibold text-slate-900 leading-tight">
                   {displayName}
                 </p>
-                <span className="inline-flex items-center text-[10px] font-medium text-[#8A1ABA] bg-purple-100/80 px-2 py-0.5 rounded-md mt-0.5">
-                  ผู้ดูแลระบบ (Admin)
-                </span>
+                <p className="text-[11px] text-[#8A1ABA] font-medium">ผู้ดูแลระบบ</p>
               </div>
-              <div className="w-9 h-9 rounded-xl bg-[#8A1ABA] text-white flex items-center justify-center font-bold text-sm shadow-xs ring-2 ring-[#8A1ABA]/20">
+              <div
+                className="w-8 h-8 rounded-lg bg-[#8A1ABA] text-white flex items-center justify-center font-semibold text-xs"
+                aria-hidden="true"
+              >
                 {initial}
               </div>
             </div>
           </div>
         </header>
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-100 p-4 md:p-6 print:overflow-visible print:bg-white print:p-0 print:m-0">
+
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#F5F1FA] p-4 md:p-6 print:overflow-visible print:bg-white print:p-0 print:m-0">
           <Outlet />
         </main>
       </div>

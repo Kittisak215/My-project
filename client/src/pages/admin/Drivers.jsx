@@ -1,56 +1,41 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
+  Plus,
   Search,
-  X,
   Copy,
   CheckCheck,
   Trash2,
-  User,
-  Phone,
-  Mail,
   Eye,
   EyeOff,
   Car,
   AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
 import { useForm } from "react-hook-form";
 import clsx from "clsx";
 import Skeleton from "../../components/Skeleton";
+import Modal from "../../components/Modal";
 import { formatPhone } from "../../utils/format";
 
-const StatusBadge = ({ isActive }) => (
+const DriverStatusPill = ({ isActive }) => (
   <span
     className={clsx(
-      "px-2.5 py-1 rounded-full text-xs font-medium",
-      isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600",
+      "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap",
+      isActive
+        ? "bg-emerald-50 text-emerald-700 border-emerald-200/80"
+        : "bg-slate-100 text-slate-600 border-slate-200/80",
     )}
   >
-    {isActive ? "🟢 ปฏิบัติงาน" : "⚫ พ้นสภาพ"}
+    <span
+      className={clsx("w-1.5 h-1.5 rounded-full", isActive ? "bg-emerald-500" : "bg-slate-400")}
+      aria-hidden="true"
+    />
+    {isActive ? "ปฏิบัติงาน" : "พ้นสภาพ"}
   </span>
 );
 
-
-
-
-const Modal = ({ title, onClose, children }) => (
-  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-      <div className="flex justify-between items-center p-5 md:p-6 border-b">
-        <h3 className="text-base md:text-lg font-semibold text-slate-800">
-          {title}
-        </h3>
-        <button type="button" onClick={onClose}>
-          <X size={20} className="text-slate-400" />
-        </button>
-      </div>
-      <div className="p-5 md:p-6">{children}</div>
-    </div>
-  </div>
-);
-
-// กล่องแสดงข้อมูลบัญชีหลังสร้างสำเร็จ
 const CredentialCard = ({ username, password, onClose }) => {
   const [copiedUser, setCopiedUser] = useState(false);
   const [copiedPass, setCopiedPass] = useState(false);
@@ -67,73 +52,64 @@ const CredentialCard = ({ username, password, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-xl">
-              ✅
-            </div>
-            <div>
-              <p className="font-semibold text-slate-800">
-                เพิ่มผู้รับผิดชอบสำเร็จ!
-              </p>
-              <p className="text-xs text-slate-500">
-                กรุณาแจ้งข้อมูลล็อกอินแก่คนขับ
-              </p>
-            </div>
-          </div>
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-slate-400 mb-0.5">ชื่อผู้ใช้งาน</p>
-                <p className="font-semibold text-slate-800 tracking-wide">
-                  {username}
-                </p>
-              </div>
-              <button
-                onClick={() => copy(username, "user")}
-                className="p-2 rounded-lg hover:bg-slate-200 transition-colors text-slate-500"
-              >
-                {copiedUser ? (
-                  <CheckCheck size={16} className="text-green-600" />
-                ) : (
-                  <Copy size={16} />
-                )}
-              </button>
-            </div>
-            <div className="border-t border-slate-200" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-slate-400 mb-0.5">รหัสผ่าน</p>
-                <p className="font-semibold text-slate-800 tracking-wider">
-                  {password}
-                </p>
-              </div>
-              <button
-                onClick={() => copy(password, "pass")}
-                className="p-2 rounded-lg hover:bg-slate-200 transition-colors text-slate-500"
-              >
-                {copiedPass ? (
-                  <CheckCheck size={16} className="text-green-600" />
-                ) : (
-                  <Copy size={16} />
-                )}
-              </button>
-            </div>
-          </div>
-          <p className="text-xs text-amber-600 mt-3 text-center">
-            ⚠️ โปรดจดหรือคัดลอกรหัสผ่านไว้ก่อนปิด
+    <Modal title="สร้างบัญชีผู้รับผิดชอบสำเร็จ" onClose={onClose} maxWidth="max-w-sm">
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200/70 rounded-xl text-emerald-800">
+          <CheckCircle2 size={20} className="text-emerald-600 shrink-0" aria-hidden="true" />
+          <p className="text-xs leading-relaxed">
+            กรุณาคัดลอกและแจ้งข้อมูลเข้าสู่ระบบให้พนักงานขับรถก่อนปิดหน้าต่างนี้
           </p>
-          <button
-            onClick={onClose}
-            className="mt-4 w-full py-2.5 bg-[#8A1ABA] text-white rounded-lg text-sm font-medium hover:bg-[#72159c]"
-          >
-            รับทราบ และปิด
-          </button>
         </div>
+
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-slate-400">ชื่อผู้ใช้งาน</p>
+              <p className="font-semibold text-slate-900 truncate mt-0.5">{username}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => copy(username, "user")}
+              aria-label="คัดลอกชื่อผู้ใช้งาน"
+              className="p-2 rounded-lg hover:bg-slate-200/70 transition-colors text-slate-500 cursor-pointer"
+            >
+              {copiedUser ? (
+                <CheckCheck size={16} className="text-emerald-600" aria-hidden="true" />
+              ) : (
+                <Copy size={16} aria-hidden="true" />
+              )}
+            </button>
+          </div>
+          <div className="border-t border-slate-200" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-slate-400">รหัสผ่านตั้งต้น</p>
+              <p className="font-semibold text-slate-900 truncate mt-0.5">{password}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => copy(password, "pass")}
+              aria-label="คัดลอกรหัสผ่าน"
+              className="p-2 rounded-lg hover:bg-slate-200/70 transition-colors text-slate-500 cursor-pointer"
+            >
+              {copiedPass ? (
+                <CheckCheck size={16} className="text-emerald-600" aria-hidden="true" />
+              ) : (
+                <Copy size={16} aria-hidden="true" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full py-2.5 bg-[#8A1ABA] hover:bg-[#73149c] text-white rounded-xl text-sm font-medium transition-colors cursor-pointer"
+        >
+          รับทราบและปิด
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -146,44 +122,48 @@ export default function DriversPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [credential, setCredential] = useState(null); // สำหรับแสดงกล่องรหัสผ่าน
+  const [credential, setCredential] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [selectedDriverVehicles, setSelectedDriverVehicles] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+
   const {
     register,
     handleSubmit,
     reset,
     watch,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm();
+
   const limit = 10;
   const watchPhone = watch("phone", "");
 
-  const fetchDrivers = async () => {
+  const fetchDrivers = useCallback(async () => {
     setLoading(true);
     try {
       const params = { search, page, limit };
       if (status !== "") params.is_active = status === "true";
       const res = await api.get("/drivers", { params });
-      setDrivers(res.data.data);
-      setTotal(res.data.total);
+      setDrivers(res.data.data || []);
+      setTotal(res.data.total || 0);
     } catch {
-      toast.error("โหลดข้อมูลไม่สำเร็จ");
+      toast.error("โหลดข้อมูลผู้รับผิดชอบไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
+  }, [search, status, page]);
 
   useEffect(() => {
     fetchDrivers();
-  }, [search, status, page]);
+  }, [fetchDrivers]);
 
   const openCreate = () => {
     setEditing(null);
     setShowPassword(false);
-    reset({ is_active: "true" });
+    reset({ full_name: "", phone: "", email: "", username: "", password: "", is_active: "true" });
     setShowModal(true);
   };
+
   const openEdit = (d) => {
     setEditing(d);
     reset({
@@ -199,13 +179,11 @@ export default function DriversPage() {
     if (!deleteTarget) return;
     try {
       await api.delete(`/drivers/${deleteTarget.driver_id}/hard`);
-      toast.success("ลบข้อมูลคนขับถาวรสำเร็จ");
+      toast.success("ลบข้อมูลคนขับถาวรแล้ว");
       setDeleteTarget(null);
       fetchDrivers();
     } catch (err) {
-      toast.error(
-        err.response?.data?.message || "เกิดข้อผิดพลาดในการลบข้อมูล",
-      );
+      toast.error(err.response?.data?.message || "เกิดข้อผิดพลาดในการลบข้อมูล");
     }
   };
 
@@ -220,28 +198,27 @@ export default function DriversPage() {
       };
       if (editing) {
         await api.put(`/drivers/${editing.driver_id}`, payload);
-        toast.success("แก้ไขสำเร็จ");
+        toast.success("บันทึกการแก้ไขแล้ว");
         setShowModal(false);
         fetchDrivers();
       } else {
         const res = await api.post("/drivers", payload);
         setShowModal(false);
         fetchDrivers();
-        // แสดงกล่องรหัสผ่าน
-        const savedUsername = data.username || data.phone;
-        const savedPassword = res.data.defaultPassword;
-        setCredential({ username: savedUsername, password: savedPassword });
+        setCredential({
+          username: data.username || data.phone,
+          password: res.data.defaultPassword,
+        });
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "เกิดข้อผิดพลาด");
+      toast.error(err.response?.data?.message || "เกิดข้อผิดพลาดในการบันทึก");
     }
   };
 
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div>
-      {/* กล่องแสดงข้อมูลบัญชีหลังสร้างสำเร็จ */}
+    <div className="max-w-7xl mx-auto space-y-5 pb-10">
       {credential && (
         <CredentialCard
           username={credential.username}
@@ -250,166 +227,164 @@ export default function DriversPage() {
         />
       )}
 
-      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center bg-white p-4 rounded-xl shadow-sm mb-4 md:mb-6 gap-3 border border-slate-100">
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <div className="relative flex-1 sm:flex-none">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="ค้นหาชื่อ, เบอร์โทร..."
-              className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-500 w-full sm:w-56"
-            />
-          </div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
+            ผู้รับผิดชอบยานพาหนะ (พขร.)
+          </h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            จัดการรายชื่อพนักงานขับรถ ข้อมูลติดต่อ และรถในความรับผิดชอบ ({total.toLocaleString("th-TH")} คน)
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openCreate}
+          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-[#8A1ABA] hover:bg-[#73149c] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA] focus-visible:ring-offset-2 cursor-pointer"
+        >
+          <Plus size={16} aria-hidden="true" />
+          เพิ่มผู้รับผิดชอบ
+        </button>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 sm:max-w-xs">
+          <label htmlFor="driver-search" className="sr-only">
+            ค้นหาชื่อหรือเบอร์โทร
+          </label>
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            aria-hidden="true"
+          />
+          <input
+            id="driver-search"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="ค้นหาชื่อ, เบอร์โทร…"
+            autoComplete="off"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA] transition-colors"
+          />
+        </div>
+        <div>
+          <label htmlFor="driver-status" className="sr-only">
+            กรองตามสถานะ
+          </label>
           <select
+            id="driver-status"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
               setPage(1);
             }}
-            className="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-purple-500"
+            className="w-full sm:w-44 px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA] transition-colors"
           >
             <option value="">สถานะทั้งหมด</option>
             <option value="true">ปฏิบัติงาน</option>
             <option value="false">พ้นสภาพ</option>
           </select>
         </div>
-        <button
-          onClick={openCreate}
-          className="bg-[#8A1ABA] hover:bg-[#72159c] text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 w-full md:w-auto"
-        >
-          + เพิ่มผู้รับผิดชอบ
-        </button>
       </div>
 
       {/* Mobile Cards */}
-      <div className="md:hidden space-y-3 mb-4">
+      <div className="md:hidden space-y-3">
         {loading && (
           <>
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full rounded-2xl" />
+            <Skeleton className="h-32 w-full rounded-2xl" />
           </>
         )}
         {!loading && drivers.length === 0 && (
-          <p className="text-center py-8 text-slate-400">ไม่พบข้อมูล</p>
+          <div className="bg-white rounded-2xl border border-slate-200/90 py-12 text-center text-slate-400 text-sm">
+            ไม่พบข้อมูลผู้รับผิดชอบ
+          </div>
         )}
         {!loading &&
           drivers.map((d) => (
             <div
               key={d.driver_id}
               className={clsx(
-                "bg-white rounded-xl border border-slate-200 p-4 shadow-sm",
+                "bg-white rounded-2xl border border-slate-200/90 p-4 space-y-3",
                 !d.is_active && "opacity-70",
               )}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs text-slate-400">
-                      #{d.driver_id}
-                    </span>
-                    <StatusBadge isActive={d.is_active} />
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-slate-900">{d.full_name}</p>
+                    <DriverStatusPill isActive={d.is_active} />
                   </div>
-                  <p className="font-semibold text-slate-800">{d.full_name}</p>
-                  <p className="text-sm text-slate-500">
-                    {formatPhone(d.phone)}
+                  <p className="text-xs text-slate-500 mt-1 tabular-nums">
+                    {formatPhone(d.phone)} • บัญชี: {d.userAccount?.username || "-"}
                   </p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    ผูกบัญชี: {d.userAccount?.username || "-"}
-                  </p>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-xs text-slate-500">จำนวนรถ:</span>
-                    {d.vehicles && d.vehicles.length > 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDriverVehicles(d)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-full text-xs font-semibold border border-purple-200 transition-all cursor-pointer shadow-xs active:scale-95"
-                      >
-                        <Car size={13} className="text-purple-600" />
-                        <span>{d.vehicles.length} คัน</span>
-                        <span className="text-[10px] text-purple-500 font-normal underline ml-0.5">ดูทะเบียน</span>
-                      </button>
-                    ) : (
-                      <span className="text-slate-400 text-xs">ไม่มีรถในความดูแล</span>
-                    )}
-                  </div>
                 </div>
-                <div className="flex items-center gap-1 ml-2 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
+                    type="button"
                     onClick={() => openEdit(d)}
-                    className="px-3.5 py-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200"
+                    className="px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-[#8A1ABA] bg-slate-50 rounded-lg border border-slate-200 cursor-pointer"
                   >
                     แก้ไข
                   </button>
                   <button
+                    type="button"
                     onClick={() => setDeleteTarget(d)}
-                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200"
-                    title="ลบถาวร"
+                    aria-label={`ลบ ${d.full_name}`}
+                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg border border-red-200/70 cursor-pointer"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={15} aria-hidden="true" />
                   </button>
                 </div>
+              </div>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-slate-500">รถในความดูแล</span>
+                {d.vehicles && d.vehicles.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDriverVehicles(d)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-[#8A1ABA] rounded-lg font-medium border border-purple-200/70 cursor-pointer"
+                  >
+                    <Car size={13} aria-hidden="true" />
+                    {d.vehicles.length} คัน
+                  </button>
+                ) : (
+                  <span className="text-slate-400">ไม่มีรถ</span>
+                )}
               </div>
             </div>
           ))}
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="hidden md:block bg-white rounded-2xl border border-slate-200/90 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4 font-semibold text-center w-16">
-                  รหัส
-                </th>
-                <th className="px-6 py-4 font-semibold">ชื่อ - นามสกุล</th>
-                <th className="px-6 py-4 font-semibold">เบอร์โทรศัพท์</th>
-                <th className="px-6 py-4 font-semibold text-center">จำนวนรถ</th>
-                <th className="px-6 py-4 font-semibold text-center">สถานะ</th>
-                <th className="px-6 py-4 font-semibold text-center">จัดการ</th>
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/80 text-slate-500 text-xs font-medium border-b border-slate-200/80">
+                <th className="px-5 py-3.5">ชื่อ - นามสกุล</th>
+                <th className="px-4 py-3.5">เบอร์โทรศัพท์</th>
+                <th className="px-4 py-3.5 text-center">รถในความดูแล</th>
+                <th className="px-4 py-3.5 text-center">สถานะ</th>
+                <th className="px-5 py-3.5 text-right">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading && (
-                <>
-                  {[1, 2, 3, 4, 5].map((item) => (
-                    <tr key={`sk-${item}`}>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-6 w-12 mx-auto" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-5 w-32 mb-1" />
-                        <Skeleton className="h-3 w-20" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-5 w-24" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-6 w-16 mx-auto rounded-full" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-6 w-20 mx-auto rounded-full" />
-                      </td>
-                      <td className="px-6 py-4 flex justify-center gap-1">
-                        <Skeleton className="h-7 w-12" />
-                        <Skeleton className="h-7 w-12" />
-                      </td>
-                    </tr>
-                  ))}
-                </>
-              )}
+              {loading &&
+                [1, 2, 3, 4, 5].map((item) => (
+                  <tr key={`sk-${item}`}>
+                    <td colSpan={5} className="px-5 py-4">
+                      <Skeleton className="h-6 w-full" />
+                    </td>
+                  </tr>
+                ))}
               {!loading && drivers.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-slate-400">
-                    ไม่พบข้อมูล
+                  <td colSpan={5} className="text-center py-12 text-slate-400">
+                    ไม่พบข้อมูลผู้รับผิดชอบ
                   </td>
                 </tr>
               )}
@@ -418,102 +393,82 @@ export default function DriversPage() {
                   <tr
                     key={d.driver_id}
                     className={clsx(
-                      "hover:bg-slate-50 transition-colors",
-                      !d.is_active && "opacity-70",
+                      "hover:bg-slate-50/70 transition-colors",
+                      !d.is_active && "opacity-65",
                     )}
                   >
-                    <td className="px-6 py-4 text-center text-slate-500">
-                      #{d.driver_id}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-800">
-                        {d.full_name}
-                      </div>
+                    <td className="px-5 py-3.5">
+                      <div className="font-semibold text-slate-900">{d.full_name}</div>
                       <div className="text-xs text-slate-500">
-                        ผูกบัญชี: {d.userAccount?.username || "-"}
+                        บัญชี: {d.userAccount?.username || "-"} • #{d.driver_id}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-600 font-mono text-sm">
+                    <td className="px-4 py-3.5 text-slate-700 tabular-nums whitespace-nowrap">
                       {formatPhone(d.phone)}
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-4 py-3.5 text-center">
                       {d.vehicles && d.vehicles.length > 0 ? (
                         <button
                           type="button"
                           onClick={() => setSelectedDriverVehicles(d)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-full text-xs font-semibold border border-purple-200 transition-all cursor-pointer shadow-xs active:scale-95"
-                          title="คลิกเพื่อดูรายการป้ายทะเบียน"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-[#8A1ABA] rounded-lg text-xs font-medium border border-purple-200/70 transition-colors cursor-pointer"
                         >
-                          <Car size={13} className="text-purple-600" />
-                          <span>{d.vehicles.length} คัน</span>
+                          <Car size={13} aria-hidden="true" />
+                          {d.vehicles.length} คัน
                         </button>
                       ) : (
                         <span className="text-slate-400 text-xs">0 คัน</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <StatusBadge isActive={d.is_active} />
+                    <td className="px-4 py-3.5 text-center">
+                      <DriverStatusPill isActive={d.is_active} />
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => openEdit(d)}
-                        className="px-3.5 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200"
-                      >
-                        แก้ไข
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(d)}
-                        className="px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded border border-red-200 ml-1"
-                      >
-                        ลบทิ้ง
-                      </button>
+                    <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(d)}
+                          className="px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-[#8A1ABA] bg-white hover:bg-purple-50 rounded-lg border border-slate-200 hover:border-purple-200 transition-colors cursor-pointer"
+                        >
+                          แก้ไข
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(d)}
+                          className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200/80 transition-colors cursor-pointer"
+                        >
+                          ลบ
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
             </tbody>
           </table>
         </div>
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-sm">
-          <span className="text-slate-500">
-            แสดง {drivers.length} จากทั้งหมด {total} รายการ
+
+        <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
+          <span className="tabular-nums">
+            แสดง {drivers.length} จากทั้งหมด {total.toLocaleString("th-TH")} รายการ
           </span>
-          <div className="flex space-x-1">
+          <div className="flex items-center gap-1.5">
             <button
+              type="button"
               disabled={page === 1}
               onClick={() => setPage((p) => p - 1)}
-              className="px-3 py-1 border rounded bg-white disabled:opacity-50"
+              className="px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
             >
               ก่อนหน้า
             </button>
             <button
+              type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
-              className="px-3 py-1 border rounded bg-white disabled:opacity-50"
+              className="px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
             >
               ถัดไป
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Mobile Pagination */}
-      <div className="md:hidden flex items-center justify-between text-sm mt-2 px-1">
-        <span className="text-slate-500">{total} รายการ</span>
-        <div className="flex space-x-1">
-          <button
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="px-3 py-1 border rounded bg-white disabled:opacity-50 text-sm"
-          >
-            ก่อนหน้า
-          </button>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className="px-3 py-1 border rounded bg-white disabled:opacity-50 text-sm"
-          >
-            ถัดไป
-          </button>
         </div>
       </div>
 
@@ -525,205 +480,146 @@ export default function DriversPage() {
             setShowPassword(false);
           }}
         >
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 flex items-center gap-1.5">
-                  <User size={15} className="text-slate-400" />
-                  <span>ชื่อ - นามสกุล</span>
-                  <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  {...register("full_name", {
-                    required: "กรุณาระบุชื่อ - นามสกุล",
-                    maxLength: {
-                      value: 100,
-                      message: "ชื่อ - นามสกุลต้องไม่เกิน 100 ตัวอักษร",
-                    },
-                    validate: (v) =>
-                      (v && v.trim().length > 0) ||
-                      "ชื่อ - นามสกุลต้องไม่เป็นช่องว่าง",
-                  })}
-                  maxLength={100}
-                  className={clsx(
-                    "block w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white placeholder-slate-300",
-                    errors.full_name
-                      ? "border-red-400 focus:ring-red-500/10 focus:border-red-500"
-                      : "border-slate-200 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA]",
-                  )}
-                  placeholder="เช่น สมชาย ใจดี"
-                />
-                {errors.full_name && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.full_name.message}
-                  </p>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div>
+              <label htmlFor="d-name" className="block text-sm font-medium text-slate-700 mb-1">
+                ชื่อ - นามสกุล *
+              </label>
+              <input
+                id="d-name"
+                {...register("full_name", {
+                  required: "กรุณาระบุชื่อ - นามสกุล",
+                  maxLength: { value: 100, message: "ไม่เกิน 100 ตัวอักษร" },
+                  validate: (v) => (v && v.trim().length > 0) || "ต้องไม่เป็นช่องว่าง",
+                })}
+                maxLength={100}
+                placeholder="เช่น สมชาย ใจดี…"
+                className={clsx(
+                  "block w-full border rounded-xl px-3.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]",
+                  errors.full_name ? "border-red-500" : "border-slate-300",
                 )}
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 flex items-center gap-1.5">
-                  <Phone size={15} className="text-slate-400" />
-                  <span>เบอร์โทรศัพท์</span>
-                  <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  {...register("phone", {
-                    required: "กรุณาระบุเบอร์โทรศัพท์",
-                    pattern: {
-                      value: /^0[689]\d{8}$/,
-                      message:
-                        "เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก (ขึ้นต้นด้วย 06, 08 หรือ 09)",
-                    },
-                  })}
-                  type="tel"
-                  maxLength={10}
-                  onInput={(e) => {
-                    e.target.value = e.target.value.replace(/\D/g, "");
-                  }}
-                  className={clsx(
-                    "block w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white placeholder-slate-300",
-                    errors.phone
-                      ? "border-red-400 focus:ring-red-500/10 focus:border-red-500"
-                      : "border-slate-200 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA]",
-                  )}
-                  placeholder="08XXXXXXXX"
-                />
-                {errors.phone && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.phone.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Mail size={15} className="text-slate-400" />
-                    <span>อีเมล</span>
-                  </span>
-                  <span className="text-slate-400 font-normal text-xs bg-slate-100 px-2 py-0.5 rounded-md">
-                    ไม่บังคับ
-                  </span>
-                </label>
-                <input
-                  {...register("email", {
-                    pattern: {
-                      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                      message: "รูปแบบอีเมลไม่ถูกต้อง (เช่น example@mail.com)",
-                    },
-                  })}
-                  type="email"
-                  className={clsx(
-                    "block w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 transition-all bg-slate-50/50 hover:bg-slate-50 focus:bg-white placeholder-slate-300",
-                    errors.email
-                      ? "border-red-400 focus:ring-red-500/10 focus:border-red-500"
-                      : "border-slate-200 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA]",
-                  )}
-                  placeholder="example@mail.com"
-                />
-                {errors.email && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
+              />
+              {errors.full_name && (
+                <p className="text-xs text-red-600 mt-1">{errors.full_name.message}</p>
+              )}
             </div>
 
-            {/* ส่วนบัญชีล็อกอิน — แสดงเฉพาะตอนสร้างใหม่ */}
-            {!editing && (
-              <div className="border border-purple-100 bg-gradient-to-br from-purple-50/80 to-white rounded-2xl p-5 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200/30 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
-                <div className="flex items-center gap-2 mb-4 relative z-10">
-                  <div className="w-1.5 h-4 bg-purple-500 rounded-full"></div>
-                  <p className="text-xs font-bold text-purple-800 uppercase tracking-wider">
-                    ข้อมูลบัญชีล็อกอิน
-                  </p>
-                </div>
+            <div>
+              <label htmlFor="d-phone" className="block text-sm font-medium text-slate-700 mb-1">
+                เบอร์โทรศัพท์ *
+              </label>
+              <input
+                id="d-phone"
+                type="tel"
+                maxLength={10}
+                onInput={(e) => {
+                  e.target.value = e.target.value.replace(/\D/g, "");
+                }}
+                {...register("phone", {
+                  required: "กรุณาระบุเบอร์โทรศัพท์",
+                  pattern: {
+                    value: /^0[689]\d{8}$/,
+                    message: "ต้องเป็นตัวเลข 10 หลัก (ขึ้นต้นด้วย 06, 08 หรือ 09)",
+                  },
+                })}
+                placeholder="08XXXXXXXX…"
+                className={clsx(
+                  "block w-full border rounded-xl px-3.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]",
+                  errors.phone ? "border-red-500" : "border-slate-300",
+                )}
+              />
+              {errors.phone && <p className="text-xs text-red-600 mt-1">{errors.phone.message}</p>}
+            </div>
 
-                <div className="space-y-4 relative z-10">
-                  <div>
-                    <label className="text-sm font-medium text-slate-700 mb-1 block">
-                      Username{" "}
-                      <span className="text-slate-400 font-normal text-xs">
-                        (เว้นว่างเพื่อใช้เบอร์โทรเป็น Username)
-                      </span>
-                    </label>
-                    <input
-                      {...register("username")}
-                      placeholder={watchPhone || "เบอร์โทรศัพท์"}
-                      className="block w-full border border-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 transition-all bg-white/70 hover:bg-white shadow-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-slate-700 mb-1 block">
-                      รหัสผ่าน{" "}
-                      <span className="text-slate-400 font-normal text-xs">
-                        (เว้นว่างเพื่อใช้เบอร์โทรเป็นรหัสผ่านตั้งต้น)
-                      </span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        {...register("password")}
-                        type={showPassword ? "text" : "password"}
-                        placeholder={
-                          showPassword
-                            ? watchPhone || "เบอร์โทรศัพท์"
-                            : watchPhone
-                            ? "••••••••"
-                            : "เบอร์โทรศัพท์"
-                        }
-                        className="block w-full border border-white rounded-xl pl-4 pr-11 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 transition-all bg-white/70 hover:bg-white shadow-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-purple-600 transition-colors"
-                        title={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
-                      >
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                  </div>
+            <div>
+              <label htmlFor="d-email" className="block text-sm font-medium text-slate-700 mb-1">
+                อีเมล <span className="text-xs text-slate-400 font-normal">(ไม่บังคับ)</span>
+              </label>
+              <input
+                id="d-email"
+                type="email"
+                spellCheck={false}
+                {...register("email", {
+                  pattern: {
+                    value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                    message: "รูปแบบอีเมลไม่ถูกต้อง",
+                  },
+                })}
+                placeholder="example@mail.com…"
+                className={clsx(
+                  "block w-full border rounded-xl px-3.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]",
+                  errors.email ? "border-red-500" : "border-slate-300",
+                )}
+              />
+              {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email.message}</p>}
+            </div>
+
+            {!editing && (
+              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 space-y-3">
+                <p className="text-xs font-semibold text-slate-800">ข้อมูลบัญชีเข้าสู่ระบบ</p>
+                <div>
+                  <label htmlFor="d-user" className="block text-xs font-medium text-slate-600 mb-1">
+                    Username (เว้นว่างเพื่อใช้เบอร์โทร)
+                  </label>
+                  <input
+                    id="d-user"
+                    {...register("username")}
+                    spellCheck={false}
+                    placeholder={watchPhone || "เบอร์โทรศัพท์…"}
+                    className="block w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]"
+                  />
                 </div>
-                <div className="flex items-start gap-2 mt-4 pt-3 border-t border-purple-100/50">
-                  <span className="text-amber-500 text-sm">💡</span>
-                  <p className="text-[11px] text-slate-500 leading-tight">
-                    <span className="font-semibold text-slate-600">
-                      คำแนะนำ:
-                    </span>{" "}
-                    เพื่อความปลอดภัย แนะนำให้พนักงานเปลี่ยนรหัสผ่านด้วยตนเอง
-                    หลังจากล็อกอินเข้าสู่ระบบครั้งแรก
-                  </p>
+                <div>
+                  <label htmlFor="d-pass" className="block text-xs font-medium text-slate-600 mb-1">
+                    รหัสผ่าน (เว้นว่างเพื่อใช้เบอร์โทร)
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="d-pass"
+                      {...register("password")}
+                      type={showPassword ? "text" : "password"}
+                      placeholder={showPassword ? watchPhone || "เบอร์โทรศัพท์" : "ค่าเริ่มต้นคือเบอร์โทร…"}
+                      className="block w-full bg-white border border-slate-300 rounded-xl pl-3 pr-10 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                      className="absolute inset-y-0 right-2.5 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
 
             <div>
-              <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+              <label htmlFor="d-active" className="block text-sm font-medium text-slate-700 mb-1">
                 สถานะการทำงาน
               </label>
               <select
+                id="d-active"
                 {...register("is_active")}
-                className="block w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-[#8A1ABA]/10 focus:border-[#8A1ABA] transition-all bg-white cursor-pointer"
+                className="block w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]"
               >
-                <option value="true">🟢 ปฏิบัติงาน (พร้อมขับขี่)</option>
-                <option value="false">
-                  ⚫ พ้นสภาพ (ปลดรถและระงับบัญชีอัตโนมัติ)
-                </option>
+                <option value="true">ปฏิบัติงาน (พร้อมขับขี่)</option>
+                <option value="false">พ้นสภาพ (ปลดรถและระงับบัญชีอัตโนมัติ)</option>
               </select>
             </div>
 
-            <div className="flex justify-end gap-3 pt-5 mt-2 border-t border-slate-100">
+            <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="px-5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all"
+                className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 ยกเลิก
               </button>
               <button
                 type="submit"
-                className="px-6 py-2.5 bg-gradient-to-r from-[#8A1ABA] to-[#631085] text-white rounded-xl text-sm font-medium shadow-md shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/30 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-[#8A1ABA] hover:bg-[#73149c] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-60 cursor-pointer"
               >
                 {editing ? "บันทึกการแก้ไข" : "เพิ่มผู้รับผิดชอบ"}
               </button>
@@ -732,77 +628,38 @@ export default function DriversPage() {
         </Modal>
       )}
 
-      {/* Modal แสดงรายการรถของคนขับ */}
       {selectedDriverVehicles && (
         <Modal
           title={`รถในความดูแลของ ${selectedDriverVehicles.full_name}`}
+          subtitle={`เบอร์โทร ${formatPhone(selectedDriverVehicles.phone)} • ทั้งหมด ${selectedDriverVehicles.vehicles?.length || 0} คัน`}
           onClose={() => setSelectedDriverVehicles(null)}
         >
-          <div className="space-y-4">
-            <div className="flex items-center justify-between bg-purple-50/60 p-3 rounded-xl border border-purple-100">
-              <div className="flex items-center gap-2 text-purple-800 text-xs font-semibold">
-                <Car size={16} className="text-purple-600" />
-                <span>จำนวนทั้งหมด {selectedDriverVehicles.vehicles?.length || 0} คัน</span>
-              </div>
-              <span className="text-xs text-slate-500">
-                เบอร์โทร: {formatPhone(selectedDriverVehicles.phone)}
-              </span>
-            </div>
-
-            <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
-              {selectedDriverVehicles.vehicles && selectedDriverVehicles.vehicles.length > 0 ? (
-                selectedDriverVehicles.vehicles.map((v, i) => (
-                  <div
-                    key={v.vehicle_id || i}
-                    className="flex items-center justify-between bg-slate-50 hover:bg-slate-100 p-3 rounded-xl border border-slate-200 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
-                        <Car size={18} />
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-800 text-sm">
-                          {v.license_plate}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {[v.brand, v.model].filter(Boolean).join(" ") || "-"}
-                          {v.color && ` • สี${v.color}`}
-                          {v.year && ` • ปี ${v.year}`}
-                        </p>
-                      </div>
-                    </div>
-                    {v.status && (
-                      <span
-                        className={clsx(
-                          "text-xs px-2.5 py-0.5 rounded-full font-medium border",
-                          v.status === "ACTIVE" || v.status === "READY"
-                            ? "bg-green-50 text-green-700 border-green-200"
-                            : "bg-slate-100 text-slate-600 border-slate-200",
-                        )}
-                      >
-                        {v.status === "ACTIVE" || v.status === "READY"
-                          ? "พร้อมใช้งาน"
-                          : v.status}
-                      </span>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p className="text-center py-6 text-slate-400 text-xs">
-                  ไม่มีรถในความดูแล
-                </p>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setSelectedDriverVehicles(null)}
-                className="px-5 py-2 bg-[#8A1ABA] hover:bg-[#72159c] text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow transition-all cursor-pointer active:scale-95"
+          <div className="space-y-2.5">
+            {selectedDriverVehicles.vehicles?.map((v, i) => (
+              <div
+                key={v.vehicle_id || i}
+                className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200/80"
               >
-                ปิดหน้าต่าง
-              </button>
-            </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-900 text-sm">{v.license_plate}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {[v.brand, v.model].filter(Boolean).join(" ") || "-"}
+                    {v.color && ` • สี${v.color}`}
+                    {v.year && ` • ปี ${v.year}`}
+                  </p>
+                </div>
+                <span
+                  className={clsx(
+                    "text-xs px-2.5 py-0.5 rounded-full font-medium border",
+                    v.status === "ACTIVE" || v.status === "READY"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200/80"
+                      : "bg-amber-50 text-amber-700 border-amber-200/80",
+                  )}
+                >
+                  {v.status === "ACTIVE" || v.status === "READY" ? "พร้อมใช้งาน" : "กำลังซ่อม"}
+                </span>
+              </div>
+            ))}
           </div>
         </Modal>
       )}
@@ -811,34 +668,35 @@ export default function DriversPage() {
         <Modal
           title="ยืนยันการลบข้อมูลคนขับถาวร"
           onClose={() => setDeleteTarget(null)}
+          maxWidth="max-w-md"
         >
           <div className="space-y-4">
-            <div className="flex items-start gap-3 p-3.5 bg-red-50 rounded-xl text-red-700 border border-red-100">
-              <AlertTriangle className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
+            <div className="flex items-start gap-3 p-3.5 bg-red-50 rounded-xl text-red-700 border border-red-200/70">
+              <AlertTriangle size={18} className="shrink-0 mt-0.5" aria-hidden="true" />
               <div className="text-sm">
-                <p className="font-semibold text-slate-800">คุณต้องการลบข้อมูลคนขับนี้ถาวรใช่หรือไม่?</p>
+                <p className="font-semibold text-slate-900">ต้องการลบข้อมูลคนขับนี้ถาวรใช่หรือไม่?</p>
                 <p className="text-xs text-slate-600 mt-1">
-                  คนขับ: <span className="font-bold text-red-600">{deleteTarget.full_name}</span> ({deleteTarget.phone})
+                  {deleteTarget.full_name} ({formatPhone(deleteTarget.phone)})
                 </p>
               </div>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              * ระบบจะอนุญาตให้ลบได้เฉพาะคนขับที่ยังไม่มีรถผูกมัด และยังไม่มีประวัติการบันทึกเลขไมล์หรือประวัติการแจ้งซ่อมในระบบ หากมีประวัติดังกล่าวแนะนำให้แก้ไขสถานะเป็น &quot;พ้นสภาพ&quot; แทน
+              ลบได้เฉพาะคนขับที่ไม่มีรถผูกมัดและยังไม่มีประวัติในระบบ หากมีประวัติแนะนำให้เปลี่ยนสถานะเป็น “พ้นสภาพ” แทน
             </p>
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
+                className="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium cursor-pointer"
               >
                 ยกเลิก
               </button>
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5 shadow-sm"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium inline-flex items-center gap-1.5 cursor-pointer"
               >
-                <Trash2 size={16} />
+                <Trash2 size={15} aria-hidden="true" />
                 ยืนยันการลบ
               </button>
             </div>
