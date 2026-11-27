@@ -47,9 +47,9 @@ const CATEGORY_LABEL = {
 };
 
 const CATEGORY_COLOR = {
-  GENERAL: "#8A1ABA",
+  GENERAL: "#4F46E5",
   MAINTENANCE: "#0D9488",
-  EMERGENCY: "#D97706",
+  EMERGENCY: "#E11D48",
 };
 
 /* ─── Custom Accessible Tooltip ─── */
@@ -465,7 +465,7 @@ export default function ExecutiveDashboard() {
                     dataKey="laborCost"
                     name="ค่าแรงช่าง"
                     stackId="expense"
-                    fill="#D97706"
+                    fill="#0284C7"
                     radius={[6, 6, 0, 0]}
                     maxBarSize={36}
                   />
