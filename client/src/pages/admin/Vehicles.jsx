@@ -1,54 +1,36 @@
-import { useEffect, useState } from "react";
-import { Plus, Search, X } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Plus, Search, Car, Gauge, User, Info } from "lucide-react";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
 import { useForm } from "react-hook-form";
 import clsx from "clsx";
 import Skeleton from "../../components/Skeleton";
+import Modal from "../../components/Modal";
 
-const StatusBadge = ({ status, isActive }) => {
-  if (isActive === false)
+const VehicleStatusPill = ({ status, isActive }) => {
+  if (isActive === false) {
     return (
-      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-        ⚫ ปลดระวาง
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border bg-slate-100 text-slate-600 border-slate-200/80 whitespace-nowrap">
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" aria-hidden="true" />
+        ปลดระวาง
       </span>
     );
-  const map = {
-    READY: "bg-green-100 text-green-700",
-    IN_REPAIR: "bg-amber-100 text-amber-700",
-  };
-  const label = { READY: "🟢 พร้อมใช้งาน", IN_REPAIR: "🛠️ กำลังซ่อม" };
+  }
+  if (status === "IN_REPAIR") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border bg-amber-50 text-amber-700 border-amber-200/80 whitespace-nowrap">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+        กำลังซ่อม
+      </span>
+    );
+  }
   return (
-    <span
-      className={clsx(
-        "px-2.5 py-1 rounded-full text-xs font-medium",
-        map[status],
-      )}
-    >
-      {label[status]}
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border bg-emerald-50 text-emerald-700 border-emerald-200/80 whitespace-nowrap">
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+      พร้อมใช้งาน
     </span>
   );
 };
-
-const Modal = ({ title, onClose, children }) => (
-  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-      <div className="flex justify-between items-center p-5 md:p-6 border-b">
-        <h3 className="text-base md:text-lg font-semibold text-slate-800">
-          {title}
-        </h3>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-slate-400 hover:text-slate-600"
-        >
-          <X size={20} />
-        </button>
-      </div>
-      <div className="p-5 md:p-6">{children}</div>
-    </div>
-  </div>
-);
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState([]);
@@ -66,24 +48,14 @@ export default function VehiclesPage() {
     handleSubmit,
     reset,
     watch,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm();
   const limit = 10;
 
   const selectedTypeId = watch("type_id");
-
-  // Find the selected vehicle type object to get its defaults
   const selectedTypeObj = vehicleTypes.find(
     (t) => t.type_id.toString() === selectedTypeId?.toString(),
   );
-
-  // Fallback if not found (e.g. initial load or none selected)
-  const fallbackDefaults = {
-    mineral: 5000,
-    semi: 7000,
-    fully: 10000,
-    tire: 50000,
-  };
 
   const currentDefaults = selectedTypeObj
     ? {
@@ -92,52 +64,48 @@ export default function VehiclesPage() {
         fully: selectedTypeObj.oil_interval_fully_synthetic_km,
         tire: selectedTypeObj.tire_change_interval_km,
       }
-    : fallbackDefaults;
+    : { mineral: 5000, semi: 7000, fully: 10000, tire: 50000 };
 
-  const fetchVehicleTypes = async () => {
-    try {
-      const res = await api.get("/vehicle-types");
-      setVehicleTypes(res.data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const fetchVehicles = async () => {
+  const fetchVehicles = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get("/vehicles", {
         params: { search, status, page, limit },
       });
-      setVehicles(res.data.data);
-      setTotal(res.data.total);
+      setVehicles(res.data.data || []);
+      setTotal(res.data.total || 0);
     } catch {
-      toast.error("โหลดข้อมูลไม่สำเร็จ");
+      toast.error("โหลดข้อมูลยานพาหนะไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
-
-  const fetchDrivers = async () => {
-    try {
-      const res = await api.get("/drivers", { params: { limit: 100 } });
-      setDrivers(res.data.data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  }, [search, status, page]);
 
   useEffect(() => {
-    // eslint-disable-next-line
     fetchVehicles();
-    fetchDrivers();
-    fetchVehicleTypes();
-  }, [search, status, page]);
+  }, [fetchVehicles]);
+
+  useEffect(() => {
+    api.get("/drivers", { params: { limit: 100 } }).then((res) => setDrivers(res.data.data || [])).catch(() => {});
+    api.get("/vehicle-types").then((res) => setVehicleTypes(res.data || [])).catch(() => {});
+  }, []);
 
   const openCreate = () => {
     setEditing(null);
-    reset({ status: "READY", is_active: "true" });
+    reset({
+      license_plate: "",
+      type_id: "",
+      brand: "",
+      model: "",
+      color: "",
+      year: "",
+      status: "READY",
+      driver_id: "",
+      is_active: "true",
+    });
     setShowModal(true);
   };
+
   const openEdit = (v) => {
     setEditing(v);
     reset({
@@ -169,43 +137,74 @@ export default function VehiclesPage() {
       };
       if (editing) await api.put(`/vehicles/${editing.vehicle_id}`, payload);
       else await api.post("/vehicles", payload);
-      toast.success(editing ? "แก้ไขสำเร็จ" : "เพิ่มสำเร็จ");
+      toast.success(editing ? "บันทึกการแก้ไขแล้ว" : "เพิ่มยานพาหนะแล้ว");
       setShowModal(false);
       fetchVehicles();
     } catch (err) {
-      toast.error(err.response?.data?.message || "เกิดข้อผิดพลาด");
+      toast.error(err.response?.data?.message || "เกิดข้อผิดพลาดในการบันทึก");
     }
   };
 
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div>
-      {/* Toolbar */}
-      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center bg-white p-4 rounded-xl shadow-sm mb-4 md:mb-6 gap-3 border border-slate-100">
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <div className="relative flex-1 sm:flex-none">
-            <Search
-              size={16}
-              className="absolute inset-y-0 left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value.trimStart());
-                setPage(1);
-              }}
-              placeholder="ค้นหาทะเบียนรถ, ยี่ห้อ..."
-              className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-[#8A1ABA] w-full sm:w-56"
-            />
-          </div>
+    <div className="max-w-7xl mx-auto space-y-5 pb-10">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
+            จัดการยานพาหนะ
+          </h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            ทะเบียนรถทั้งหมดในระบบ พร้อมข้อมูลเลขไมล์และผู้รับผิดชอบ ({total.toLocaleString("th-TH")} คัน)
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openCreate}
+          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-[#8A1ABA] hover:bg-[#73149c] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA] focus-visible:ring-offset-2 cursor-pointer"
+        >
+          <Plus size={16} aria-hidden="true" />
+          เพิ่มยานพาหนะ
+        </button>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 sm:max-w-xs">
+          <label htmlFor="vehicle-search" className="sr-only">
+            ค้นหาทะเบียนรถหรือยี่ห้อ
+          </label>
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            aria-hidden="true"
+          />
+          <input
+            id="vehicle-search"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value.trimStart());
+              setPage(1);
+            }}
+            placeholder="ค้นหาทะเบียนรถ, ยี่ห้อ…"
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA] transition-colors"
+          />
+        </div>
+        <div>
+          <label htmlFor="vehicle-status-filter" className="sr-only">
+            กรองตามสถานะ
+          </label>
           <select
+            id="vehicle-status-filter"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
               setPage(1);
             }}
-            className="border border-slate-300 rounded-lg px-4 py-2 text-sm text-slate-600 focus:outline-none focus:border-blue-500"
+            className="w-full sm:w-44 px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA] transition-colors"
           >
             <option value="">สถานะทั้งหมด</option>
             <option value="READY">พร้อมใช้งาน</option>
@@ -213,232 +212,186 @@ export default function VehiclesPage() {
             <option value="INACTIVE">ปลดระวาง</option>
           </select>
         </div>
-        <button
-          onClick={openCreate}
-          className="bg-[#8A1ABA] hover:bg-[#72159c] text-white px-5 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 justify-center"
-        >
-          <Plus size={16} /> เพิ่มยานพาหนะ
-        </button>
       </div>
 
       {/* Mobile Cards */}
-      <div className="md:hidden space-y-3 mb-4">
+      <div className="md:hidden space-y-3">
         {loading && (
           <>
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full rounded-2xl" />
+            <Skeleton className="h-32 w-full rounded-2xl" />
           </>
         )}
         {!loading && vehicles.length === 0 && (
-          <p className="text-center py-8 text-slate-400">ไม่พบข้อมูล</p>
+          <div className="bg-white rounded-2xl border border-slate-200/90 py-12 text-center text-slate-400 text-sm">
+            ไม่พบข้อมูลยานพาหนะ
+          </div>
         )}
-        {vehicles.map((v) => (
-          <div
-            key={v.vehicle_id}
-            className={clsx(
-              "bg-white rounded-xl border border-slate-200 p-4 shadow-sm",
-              !v.is_active && "opacity-70",
-            )}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <p className="font-bold text-slate-800 text-base">
-                    {v.license_plate}
+        {!loading &&
+          vehicles.map((v) => (
+            <div
+              key={v.vehicle_id}
+              className={clsx(
+                "bg-white rounded-2xl border border-slate-200/90 p-4 space-y-3",
+                !v.is_active && "opacity-70",
+              )}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-slate-900 text-base">
+                      {v.license_plate}
+                    </p>
+                    <VehicleStatusPill status={v.status} isActive={v.is_active} />
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">
+                    {v.vehicleType?.type_name || "ไม่ระบุ"} • {v.brand} {v.model} ({v.color || "-"} / {v.year || "-"})
                   </p>
-                  <StatusBadge status={v.status} isActive={v.is_active} />
                 </div>
-                <p className="text-sm text-slate-600">
-                  {v.vehicleType?.type_name || "ไม่ระบุ"} • {v.brand} {v.model}
-                </p>
-                <p className="text-xs text-slate-400">
-                  สี{v.color || "-"} / ปี {v.year || "-"}
-                </p>
-                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-500">
-                  <span>👤 {v.driver?.full_name || "ไม่ระบุ"}</span>
-                  <span>
-                    น้ำมัน ({v.currentOilGradeLabel || "Fully"}):{" "}
-                    {v.currentOilInterval?.toLocaleString() ||
-                      v.vehicleType?.oil_interval_fully_synthetic_km?.toLocaleString() ||
-                      "-"}{" "}
-                    กม.
-                  </span>
-                  <span>
-                    ยาง:{" "}
-                    {v.vehicleType?.tire_change_interval_km?.toLocaleString() ||
-                      "-"}{" "}
-                    กม.
-                  </span>
-                  <span className="font-semibold text-slate-700">
-                    📍 {(v.current_mileage || 0).toLocaleString()} กม.
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 ml-2 shrink-0">
                 <button
+                  type="button"
                   onClick={() => openEdit(v)}
-                  className="px-3.5 py-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg border border-amber-200"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-[#8A1ABA] bg-slate-50 hover:bg-purple-50 rounded-lg border border-slate-200 transition-colors cursor-pointer"
                 >
                   แก้ไข
                 </button>
               </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-2 border-t border-slate-100 text-xs text-slate-500">
+                <span className="inline-flex items-center gap-1">
+                  <User size={13} aria-hidden="true" />
+                  {v.driver?.full_name || "ไม่ระบุ"}
+                </span>
+                <span className="inline-flex items-center gap-1 font-medium text-slate-700 tabular-nums">
+                  <Gauge size={13} aria-hidden="true" />
+                  {(v.current_mileage || 0).toLocaleString("th-TH")} กม.
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="hidden md:block bg-white rounded-2xl border border-slate-200/90 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
-              <tr>
-                <th className="px-4 py-3 font-semibold text-center">รหัส</th>
-                <th className="px-4 py-3 font-semibold">ป้ายทะเบียน</th>
-                <th className="px-4 py-3 font-semibold">ประเภท</th>
-                <th className="px-4 py-3 font-semibold">ยี่ห้อ / รุ่น</th>
-                <th className="px-4 py-3 font-semibold">ผู้รับผิดชอบ</th>
-                <th className="px-4 py-3 font-semibold text-right">
-                  รอบเครื่อง/ยาง
-                </th>
-                <th className="px-4 py-3 font-semibold text-right">
-                  เลขไมล์ปัจจุบัน
-                </th>
-                <th className="px-4 py-3 font-semibold text-center">สถานะ</th>
-                <th className="px-4 py-3 font-semibold text-center">จัดการ</th>
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/80 text-slate-500 text-xs font-medium border-b border-slate-200/80">
+                <th className="px-5 py-3.5">ป้ายทะเบียน</th>
+                <th className="px-4 py-3.5">ประเภท / ยี่ห้อ</th>
+                <th className="px-4 py-3.5">ผู้รับผิดชอบ</th>
+                <th className="px-4 py-3.5 text-right">รอบน้ำมัน / ยาง</th>
+                <th className="px-4 py-3.5 text-right">เลขไมล์ปัจจุบัน</th>
+                <th className="px-4 py-3.5 text-center">สถานะ</th>
+                <th className="px-5 py-3.5 text-right">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loading && (
-                <>
-                  {[1, 2, 3, 4, 5].map((item) => (
-                    <tr key={`sk-${item}`}>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-5 w-16" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-5 w-24 mb-1" />
-                        <Skeleton className="h-3 w-16" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-5 w-24" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <Skeleton className="h-5 w-20" />
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <Skeleton className="h-6 w-16 mx-auto rounded-full" />
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <Skeleton className="h-6 w-20 mx-auto rounded-full" />
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <Skeleton className="h-7 w-12 mx-auto" />
-                      </td>
-                    </tr>
-                  ))}
-                </>
-              )}
+              {loading &&
+                [1, 2, 3, 4, 5].map((item) => (
+                  <tr key={`sk-${item}`}>
+                    <td colSpan={7} className="px-5 py-4">
+                      <Skeleton className="h-6 w-full" />
+                    </td>
+                  </tr>
+                ))}
               {!loading && vehicles.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="text-center py-8 text-slate-400">
-                    ไม่พบข้อมูล
+                  <td colSpan={7} className="text-center py-12 text-slate-400">
+                    <Car size={28} className="mx-auto mb-2 text-slate-300" aria-hidden="true" />
+                    ไม่พบข้อมูลยานพาหนะ
                   </td>
                 </tr>
               )}
-              {vehicles.map((v) => (
-                <tr
-                  key={v.vehicle_id}
-                  className={clsx(
-                    "hover:bg-slate-50 transition-colors",
-                    !v.is_active && "opacity-70",
-                  )}
-                >
-                  <td className="px-4 py-3 text-center text-slate-500">
-                    #{v.vehicle_id}
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-slate-800">
-                    {v.license_plate}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {v.vehicleType?.type_name || "ไม่ระบุ"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-slate-800">
-                      {v.brand} {v.model}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      สี{v.color || "-"} / ปี {v.year || "-"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {v.driver?.full_name || "-"}
-                  </td>
-                  <td className="px-4 py-3 text-right text-xs">
-                    <div className="text-slate-600">
-                      <span className="text-slate-400 font-medium">
-                        น้ำมัน:
-                      </span>{" "}
-                      {v.currentOilInterval?.toLocaleString() || "-"} กม. (
-                      {v.currentOilGradeLabel})
-                    </div>
-                    <div className="text-slate-600">
-                      <span className="text-slate-400 font-medium">ยาง:</span>{" "}
-                      {v.vehicleType?.tire_change_interval_km?.toLocaleString() ||
-                        "-"}{" "}
-                      กม.
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium text-slate-800">
-                    {(v.current_mileage || 0).toLocaleString()} กม.
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <StatusBadge status={v.status} isActive={v.is_active} />
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => openEdit(v)}
-                      className="px-3.5 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded border border-amber-200"
-                    >
-                      แก้ไข
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {!loading &&
+                vehicles.map((v) => (
+                  <tr
+                    key={v.vehicle_id}
+                    className={clsx(
+                      "hover:bg-slate-50/70 transition-colors",
+                      !v.is_active && "opacity-65",
+                    )}
+                  >
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <div className="font-semibold text-slate-900">{v.license_plate}</div>
+                      <div className="text-[11px] text-slate-400 tabular-nums">#{v.vehicle_id}</div>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="text-slate-900 font-medium">
+                        {v.brand} {v.model}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {v.vehicleType?.type_name || "ไม่ระบุ"} • สี{v.color || "-"} • ปี {v.year || "-"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">
+                      {v.driver?.full_name || <span className="text-slate-400">-</span>}
+                    </td>
+                    <td className="px-4 py-3.5 text-right text-xs tabular-nums whitespace-nowrap">
+                      <div className="text-slate-700">
+                        น้ำมัน {v.currentOilInterval?.toLocaleString("th-TH") || "-"} กม.
+                        {v.currentOilGradeLabel && (
+                          <span className="text-slate-400 ml-1">({v.currentOilGradeLabel})</span>
+                        )}
+                      </div>
+                      <div className="text-slate-400">
+                        ยาง {v.vehicleType?.tire_change_interval_km?.toLocaleString("th-TH") || "-"} กม.
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-semibold text-slate-900 tabular-nums whitespace-nowrap">
+                      {(v.current_mileage || 0).toLocaleString("th-TH")} กม.
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <VehicleStatusPill status={v.status} isActive={v.is_active} />
+                    </td>
+                    <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(v)}
+                        className="px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-[#8A1ABA] bg-white hover:bg-purple-50 rounded-lg border border-slate-200 hover:border-purple-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA] cursor-pointer"
+                      >
+                        แก้ไข
+                      </button>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-sm">
-          <span className="text-slate-500">
-            แสดง {vehicles.length} จากทั้งหมด {total} รายการ
+
+        {/* Pagination */}
+        <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
+          <span className="tabular-nums">
+            แสดง {vehicles.length} จากทั้งหมด {total.toLocaleString("th-TH")} รายการ
           </span>
-          <div className="flex space-x-1">
+          <div className="flex items-center gap-1">
             <button
+              type="button"
               disabled={page === 1}
               onClick={() => setPage((p) => p - 1)}
-              className="px-3 py-1 border rounded bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+              className="px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
             >
               ก่อนหน้า
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
               <button
                 key={p}
+                type="button"
                 onClick={() => setPage(p)}
                 className={clsx(
-                  "px-3 py-1 border rounded",
+                  "px-3 py-1.5 border rounded-lg tabular-nums cursor-pointer transition-colors",
                   page === p
-                    ? "bg-blue-50 border-blue-500 text-blue-600 font-medium"
-                    : "bg-white text-slate-700 hover:bg-slate-100",
+                    ? "bg-[#8A1ABA] border-[#8A1ABA] text-white font-semibold"
+                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50",
                 )}
               >
                 {p}
               </button>
             ))}
             <button
+              type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
-              className="px-3 py-1 border rounded bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+              className="px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
             >
               ถัดไป
             </button>
@@ -447,80 +400,83 @@ export default function VehiclesPage() {
       </div>
 
       {/* Mobile Pagination */}
-      <div className="md:hidden flex items-center justify-between text-sm mt-2 px-1">
-        <span className="text-slate-500">{total} รายการ</span>
-        <div className="flex space-x-1">
-          <button
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="px-3 py-1 border rounded bg-white disabled:opacity-50"
-          >
-            ก่อนหน้า
-          </button>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className="px-3 py-1 border rounded bg-white disabled:opacity-50"
-          >
-            ถัดไป
-          </button>
+      {total > limit && (
+        <div className="md:hidden flex items-center justify-between text-xs text-slate-500 px-1">
+          <span className="tabular-nums">ทั้งหมด {total} รายการ</span>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 disabled:opacity-40"
+            >
+              ก่อนหน้า
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 disabled:opacity-40"
+            >
+              ถัดไป
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {showModal && (
         <Modal
           title={editing ? "แก้ไขยานพาหนะ" : "เพิ่มยานพาหนะ"}
           onClose={() => setShowModal(false)}
+          maxWidth="max-w-xl"
         >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <div className="flex items-center gap-1.5">
-                  <label className="text-sm font-medium text-slate-700">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <label htmlFor="v-plate" className="text-sm font-medium text-slate-700">
                     ป้ายทะเบียน *
                   </label>
                   <div className="group relative inline-block">
-                    <span className="cursor-help text-[11px] text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full w-4 h-4 inline-flex items-center justify-center font-bold transition-colors">
-                      i
+                    <span
+                      className="cursor-help text-slate-400 hover:text-slate-600 inline-flex items-center"
+                      title="เช่น กง-2345 หรือ กข-1234 บุรีรัมย์"
+                    >
+                      <Info size={14} aria-hidden="true" />
                     </span>
-                    <div className="pointer-events-none absolute top-full left-0 mt-2 hidden group-hover:block z-50 w-60 p-2.5 bg-slate-800 text-white text-[11px] rounded-lg shadow-xl leading-relaxed">
-                      <p className="font-semibold text-amber-300 mb-1">คำแนะนำป้ายทะเบียน</p>
-                      • เช่น <span className="bg-slate-700 px-1 py-0.5 rounded text-amber-200 font-mono">กง-2345</span><br />
-                      • กทม. ละเว้นชื่อจังหวัดได้<br />
-                      • ต่างจังหวัด เช่น <span className="bg-slate-700 px-1 py-0.5 rounded text-amber-200 font-mono">กข-1234 บุรีรัมย์</span>
-                      <div className="absolute bottom-full left-1 border-4 border-transparent border-b-slate-800" />
+                    <div className="pointer-events-none absolute top-full left-0 mt-1.5 hidden group-hover:block z-50 w-56 p-2.5 bg-slate-900 text-white text-[11px] rounded-xl shadow-lg leading-relaxed">
+                      <p className="font-semibold text-purple-200 mb-1">รูปแบบป้ายทะเบียน</p>
+                      • เช่น กง-2345 (กทม.)<br />
+                      • ต่างจังหวัด เช่น กข-1234 บุรีรัมย์
                     </div>
                   </div>
                 </div>
                 <input
+                  id="v-plate"
                   {...register("license_plate", {
                     required: "ระบุป้ายทะเบียน",
-                    pattern: {
-                      value: /.+-.+/,
-                      message: "ต้องมีเครื่องหมาย - คั่น",
-                    },
+                    pattern: { value: /.+-.+/, message: "ต้องมีเครื่องหมาย - คั่น" },
                   })}
-                  placeholder="เช่น กง-2345"
+                  placeholder="เช่น กง-2345…"
+                  spellCheck={false}
                   className={clsx(
-                    "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
-                    errors.license_plate
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-slate-300 focus:border-[#8A1ABA]",
+                    "block w-full border rounded-xl px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]",
+                    errors.license_plate ? "border-red-500" : "border-slate-300",
                   )}
                 />
                 {errors.license_plate && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.license_plate.message}
-                  </p>
+                  <p className="text-xs text-red-600 mt-1">{errors.license_plate.message}</p>
                 )}
               </div>
+
               <div>
-                <label className="text-sm font-medium text-slate-700">
+                <label htmlFor="v-type" className="block text-sm font-medium text-slate-700 mb-1">
                   ประเภทรถ *
                 </label>
                 <select
-                  {...register("type_id", { required: true })}
-                  className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  id="v-type"
+                  {...register("type_id", { required: "กรุณาเลือกประเภทรถ" })}
+                  className="block w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]"
                 >
                   <option value="">เลือกประเภท</option>
                   {vehicleTypes.map((vt) => (
@@ -530,197 +486,151 @@ export default function VehiclesPage() {
                   ))}
                 </select>
               </div>
+
               <div>
-                <label className="text-sm font-medium text-slate-700">
+                <label htmlFor="v-brand" className="block text-sm font-medium text-slate-700 mb-1">
                   ยี่ห้อ *
                 </label>
                 <input
+                  id="v-brand"
                   {...register("brand", {
                     required: "กรุณาระบุยี่ห้อ",
-                    maxLength: {
-                      value: 50,
-                      message: "ยี่ห้อต้องไม่เกิน 50 ตัวอักษร",
-                    },
+                    maxLength: { value: 50, message: "ไม่เกิน 50 ตัวอักษร" },
                   })}
                   maxLength={50}
-                  placeholder="เช่น Toyota"
+                  placeholder="เช่น Toyota…"
                   className={clsx(
-                    "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
-                    errors.brand
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-slate-300 focus:border-[#8A1ABA]",
+                    "block w-full border rounded-xl px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]",
+                    errors.brand ? "border-red-500" : "border-slate-300",
                   )}
                 />
-                {errors.brand && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.brand.message}
-                  </p>
-                )}
+                {errors.brand && <p className="text-xs text-red-600 mt-1">{errors.brand.message}</p>}
               </div>
+
               <div>
-                <label className="text-sm font-medium text-slate-700">
+                <label htmlFor="v-model" className="block text-sm font-medium text-slate-700 mb-1">
                   รุ่น *
                 </label>
                 <input
+                  id="v-model"
                   {...register("model", {
                     required: "กรุณาระบุรุ่น",
-                    maxLength: {
-                      value: 50,
-                      message: "รุ่นต้องไม่เกิน 50 ตัวอักษร",
-                    },
+                    maxLength: { value: 50, message: "ไม่เกิน 50 ตัวอักษร" },
                   })}
                   maxLength={50}
-                  placeholder="เช่น Commuter"
+                  placeholder="เช่น Commuter…"
                   className={clsx(
-                    "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
-                    errors.model
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-slate-300 focus:border-[#8A1ABA]",
+                    "block w-full border rounded-xl px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]",
+                    errors.model ? "border-red-500" : "border-slate-300",
                   )}
                 />
-                {errors.model && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.model.message}
-                  </p>
-                )}
+                {errors.model && <p className="text-xs text-red-600 mt-1">{errors.model.message}</p>}
               </div>
+
               <div>
-                <label className="text-sm font-medium text-slate-700">สี</label>
+                <label htmlFor="v-color" className="block text-sm font-medium text-slate-700 mb-1">
+                  สี
+                </label>
                 <input
-                  {...register("color", {
-                    maxLength: {
-                      value: 50,
-                      message: "สีต้องไม่เกิน 50 ตัวอักษร",
-                    },
-                  })}
+                  id="v-color"
+                  {...register("color", { maxLength: { value: 50, message: "ไม่เกิน 50 ตัวอักษร" } })}
                   maxLength={50}
-                  placeholder="เช่น ขาว"
-                  className={clsx(
-                    "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none",
-                    errors.color
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-slate-300 focus:border-[#8A1ABA]",
-                  )}
+                  placeholder="เช่น ขาว…"
+                  className="block w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]"
                 />
-                {errors.color && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.color.message}
-                  </p>
-                )}
               </div>
+
               <div>
-                <label className="text-sm font-medium text-slate-700">
+                <label htmlFor="v-year" className="block text-sm font-medium text-slate-700 mb-1">
                   ปีที่ผลิต (ค.ศ.) *
                 </label>
                 <input
+                  id="v-year"
                   {...register("year", {
                     required: "กรุณาระบุปีที่ผลิต",
                     valueAsNumber: true,
-                    min: {
-                      value: 1970,
-                      message:
-                        "ปีที่ผลิตต้องเป็น ค.ศ. (ตั้งแต่ 1970 เป็นต้นไป)",
-                    },
+                    min: { value: 1970, message: "ต้องเป็น ค.ศ. ตั้งแต่ 1970" },
                     max: {
                       value: new Date().getFullYear() + 1,
-                      message: `ปีที่ผลิตต้องไม่เกิน ค.ศ. ${new Date().getFullYear() + 1}`,
+                      message: `ต้องไม่เกิน ค.ศ. ${new Date().getFullYear() + 1}`,
                     },
                   })}
                   type="number"
                   min="1970"
                   max={new Date().getFullYear() + 1}
-                  onKeyDown={(e) =>
-                    ["e", "E", "+", "-", "."].includes(e.key) &&
-                    e.preventDefault()
-                  }
-                  placeholder={`เช่น ${new Date().getFullYear()}`}
+                  onKeyDown={(e) => ["e", "E", "+", "-", "."].includes(e.key) && e.preventDefault()}
+                  placeholder={`เช่น ${new Date().getFullYear()}…`}
                   className={clsx(
-                    "mt-1 block w-full border rounded-lg px-3 py-2 text-sm focus:outline-none placeholder-slate-400",
-                    errors.year
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-slate-300 focus:border-[#8A1ABA]",
+                    "block w-full border rounded-xl px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]",
+                    errors.year ? "border-red-500" : "border-slate-300",
                   )}
                 />
-                {errors.year && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.year.message}
-                  </p>
-                )}
+                {errors.year && <p className="text-xs text-red-600 mt-1">{errors.year.message}</p>}
               </div>
-              <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-4">
+
+              {/* Maintenance defaults preview */}
+              <div className="sm:col-span-2 bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                    ⚙️ รอบบำรุงรักษามาตรฐาน (อ้างอิงตามประเภทรถ)
+                  <span className="text-xs font-semibold text-slate-700">
+                    รอบบำรุงรักษามาตรฐาน (อ้างอิงตามประเภทรถ)
                   </span>
-                  <span className="text-[11px] font-medium text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
-                    {selectedTypeObj
-                      ? selectedTypeObj.type_name
-                      : "ยังไม่ได้เลือกประเภทรถ"}
+                  <span className="text-[11px] font-medium text-[#8A1ABA] bg-purple-50 border border-purple-200/70 px-2 py-0.5 rounded-md">
+                    {selectedTypeObj ? selectedTypeObj.type_name : "ยังไม่เลือกประเภท"}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                    <p className="text-[11px] text-slate-400">Mineral</p>
-                    <p className="font-semibold text-slate-700 mt-0.5">
-                      {currentDefaults.mineral?.toLocaleString() || "-"} กม.
-                    </p>
-                  </div>
-                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                    <p className="text-[11px] text-slate-400">กึ่งสังเคราะห์</p>
-                    <p className="font-semibold text-slate-700 mt-0.5">
-                      {currentDefaults.semi?.toLocaleString() || "-"} กม.
-                    </p>
-                  </div>
-                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                    <p className="text-[11px] text-slate-400">สังเคราะห์แท้</p>
-                    <p className="font-semibold text-slate-700 mt-0.5">
-                      {currentDefaults.fully?.toLocaleString() || "-"} กม.
-                    </p>
-                  </div>
-                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                    <p className="text-[11px] text-slate-400">เปลี่ยนยาง</p>
-                    <p className="font-semibold text-slate-700 mt-0.5">
-                      {currentDefaults.tire?.toLocaleString() || "-"} กม.
-                    </p>
-                  </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs tabular-nums">
+                  {[
+                    { label: "Mineral", val: currentDefaults.mineral },
+                    { label: "กึ่งสังเคราะห์", val: currentDefaults.semi },
+                    { label: "สังเคราะห์แท้", val: currentDefaults.fully },
+                    { label: "เปลี่ยนยาง", val: currentDefaults.tire },
+                  ].map((d) => (
+                    <div key={d.label} className="bg-white p-2 rounded-lg border border-slate-200/70">
+                      <p className="text-[11px] text-slate-400">{d.label}</p>
+                      <p className="font-semibold text-slate-800 mt-0.5">
+                        {d.val?.toLocaleString("th-TH") || "-"} กม.
+                      </p>
+                    </div>
+                  ))}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-2">
-                  * กำหนดหรือแก้ไขระยะรอบได้ที่เมนู{" "}
-                  <strong>"จัดการประเภทยานพาหนะ"</strong>{" "}
-                  (จะมีผลกับรถทุกคันในประเภทนี้ทันที)
-                </p>
               </div>
+
               <div>
-                <label className="text-sm font-medium text-slate-700">
+                <label htmlFor="v-status" className="block text-sm font-medium text-slate-700 mb-1">
                   สถานะตัวรถ
                 </label>
                 <select
+                  id="v-status"
                   {...register("status")}
-                  className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  className="block w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]"
                 >
                   <option value="READY">พร้อมใช้งาน</option>
                   <option value="IN_REPAIR">กำลังซ่อม</option>
                 </select>
               </div>
+
               <div>
-                <label className="text-sm font-medium text-slate-700">
-                  สถานะการทำงาน
+                <label htmlFor="v-active" className="block text-sm font-medium text-slate-700 mb-1">
+                  สถานะการใช้งาน
                 </label>
                 <select
+                  id="v-active"
                   {...register("is_active")}
-                  className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  className="block w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]"
                 >
-                  <option value="true">🟢 ใช้งาน</option>
-                  <option value="false">⚫ ปลดระวาง (ซ่อนจากระบบ)</option>
+                  <option value="true">ใช้งานปกติ</option>
+                  <option value="false">ปลดระวาง (ซ่อนจากระบบ)</option>
                 </select>
               </div>
-              <div className="col-span-2">
-                <label className="text-sm font-medium text-slate-700">
-                  ผู้รับผิดชอบ
+
+              <div className="sm:col-span-2">
+                <label htmlFor="v-driver" className="block text-sm font-medium text-slate-700 mb-1">
+                  ผู้รับผิดชอบ (พขร.)
                 </label>
                 <select
+                  id="v-driver"
                   {...register("driver_id")}
-                  className="mt-1 block w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  className="block w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]"
                 >
                   <option value="">ไม่ระบุ</option>
                   {drivers.map((d) => (
@@ -731,17 +641,19 @@ export default function VehiclesPage() {
                 </select>
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-4 border-t">
+
+            <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
+                className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 ยกเลิก
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-[#8A1ABA] text-white rounded-lg text-sm font-medium hover:bg-[#72159c]"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-[#8A1ABA] hover:bg-[#73149c] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-60 cursor-pointer"
               >
                 {editing ? "บันทึกการแก้ไข" : "เพิ่มยานพาหนะ"}
               </button>

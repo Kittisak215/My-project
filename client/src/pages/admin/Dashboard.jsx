@@ -1,52 +1,21 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Car,
   Wrench,
   Bell,
-  Banknote,
   RefreshCw,
-  ShieldCheck,
-  Activity,
-  Zap,
   CheckCircle2,
   AlertTriangle,
   ClipboardList,
+  ArrowUpRight,
+  Banknote,
 } from "lucide-react";
 import StatusBadge from "../../components/StatusBadge";
 import MaintenanceForecastCard from "../../components/MaintenanceForecastCard";
 import api from "../../lib/axios";
 import { toast } from "react-toastify";
 import clsx from "clsx";
-
-/* ─── Animation keyframes ─── */
-const ANIM_STYLE = `
-@keyframes fadeSlideUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes pulseRing {
-  0%, 100% { transform: scale(1); opacity: 0.7; }
-  50%       { transform: scale(1.5); opacity: 0; }
-}
-@keyframes countUp {
-  from { opacity: 0; transform: scale(0.85); }
-  to   { opacity: 1; transform: scale(1); }
-}
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-`;
-
-function injectStyle(id, css) {
-  if (typeof document !== "undefined" && !document.getElementById(id)) {
-    const el = document.createElement("style");
-    el.id = id;
-    el.textContent = css;
-    document.head.appendChild(el);
-  }
-}
 
 /* ─── Alert type label mapping ─── */
 const alertTypeLabel = {
@@ -60,161 +29,104 @@ const alertTypeLabel = {
   เปลี่ยนยาง: "เปลี่ยนยาง",
 };
 
+const dateFormatter = new Intl.DateTimeFormat("th-TH", {
+  day: "2-digit",
+  month: "short",
+  year: "2-digit",
+});
+
+const currencyFormatter = new Intl.NumberFormat("th-TH", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 /* ─── Alert badge ─── */
 const AlertBadge = ({ status }) => {
-  if (status === "OVERDUE")
+  if (status === "OVERDUE") {
     return (
-      <span className="bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+      <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 border border-red-200/80 px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-500" aria-hidden="true" />
         เลยกำหนด
       </span>
     );
-  if (status === "UPCOMING")
+  }
+  if (status === "UPCOMING") {
     return (
-      <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+      <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200/80 px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" />
         ใกล้กำหนด
       </span>
     );
+  }
   return (
-    <span className="bg-slate-50 text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+    <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 border border-slate-200/80 px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap">
       แก้ไขแล้ว
     </span>
   );
 };
 
-/* ─── Skeleton loader ─── */
-const Skeleton = ({ className }) => (
+/* ─── Skeleton block ─── */
+const SkeletonBlock = ({ className }) => (
   <div
-    className={clsx("rounded-2xl", className)}
-    style={{
-      background:
-        "linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)",
-      backgroundSize: "200% 100%",
-      animation: "shimmer 1.5s infinite",
-    }}
+    className={clsx("bg-slate-200/70 rounded-xl animate-pulse motion-reduce:animate-none", className)}
+    aria-hidden="true"
   />
 );
 
-/* ─── KPI Card ─── */
-function KpiCard({
-  label,
-  value,
-  unit,
-  subLabel,
-  subValue,
-  breakdown,
-  accentColor,
-  iconBg,
-  icon,
-  delay = 0,
-}) {
-  return (
-    <div
-      className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-md group cursor-default flex flex-col justify-between transition-all duration-200"
-      style={{ animation: `fadeSlideUp 0.4s ease-out ${delay}ms both` }}
-    >
-      <div className="flex items-start justify-between w-full">
-        <div>
-          <p className="text-xs font-semibold text-slate-500 mb-1">{label}</p>
-          <h3
-            className="text-2xl font-extrabold text-slate-800"
-            style={{ animation: `countUp 0.4s ease-out ${delay + 100}ms both` }}
-          >
-            {value}{" "}
-            <span className="text-sm font-medium text-slate-400">{unit}</span>
-          </h3>
-          {subLabel && (
-            <p
-              className="text-xs font-medium mt-1"
-              style={{ color: accentColor }}
-            >
-              {subLabel} {subValue}
-            </p>
-          )}
-        </div>
-        <div
-          className="p-3 rounded-2xl shrink-0 transition-transform duration-300 group-hover:scale-110"
-          style={{ background: iconBg }}
-        >
-          {icon}
-        </div>
-      </div>
-      {breakdown && breakdown.length > 0 && (
-        <div className="pl-3 mt-3 flex flex-wrap gap-1.5">
-          {breakdown.map(
-            (item, idx) =>
-              item.val > 0 && (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold bg-slate-50 text-slate-600 border border-slate-100"
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: item.color || accentColor }}
-                  ></span>
-                  {item.label}: {item.val}
-                </span>
-              ),
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function AdminDashboard() {
-  injectStyle("admin-dash-anim", ANIM_STYLE);
   const navigate = useNavigate();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
-  const [retryKey, setRetryKey] = useState(0);
+
+  const fetchDashboard = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) setRefreshing(true);
+    else setLoading(true);
+
+    try {
+      const res = await api.get("/reports/dashboard");
+      const payload = res.data ? { ...res.data } : {};
+      if (payload.maintenanceAlerts) {
+        payload.maintenanceAlerts = payload.maintenanceAlerts.filter((a) => !a.is_resolved);
+      }
+      setData(payload);
+      setError(false);
+    } catch {
+      setError(true);
+      toast.error("ไม่สามารถโหลดข้อมูลภาพรวมได้ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    api
-      .get("/reports/dashboard")
-      .then((res) => {
-        if (!cancelled) {
-          setLoading(false);
-          setError(false);
-          
-          // Filter out resolved alerts so they don't clutter the dashboard
-          if (res.data && res.data.maintenanceAlerts) {
-              res.data.maintenanceAlerts = res.data.maintenanceAlerts.filter(a => !a.is_resolved);
-          }
-          
-          setData(res.data);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLoading(false);
-          setError(true);
-          toast.error("ไม่สามารถโหลดข้อมูล Dashboard ได้");
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [retryKey]);
+    fetchDashboard(false);
+  }, [fetchDashboard]);
 
   const stats = data?.stats || {};
+  const maintenanceAlerts = data?.maintenanceAlerts || [];
+  const recentRepairs = data?.recentRepairs || [];
 
   /* ─── Loading ─── */
   if (loading) {
     return (
-      <div className="space-y-6 pb-12">
-        <Skeleton className="h-40 rounded-3xl" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-28" />
-          ))}
+      <div className="max-w-7xl mx-auto space-y-6 pb-10">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <SkeletonBlock className="h-7 w-56" />
+            <SkeletonBlock className="h-4 w-72" />
+          </div>
+          <SkeletonBlock className="h-9 w-28" />
         </div>
+        <SkeletonBlock className="h-28 w-full rounded-2xl" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
+          <SkeletonBlock className="h-72 rounded-2xl" />
+          <SkeletonBlock className="h-72 rounded-2xl" />
         </div>
+        <SkeletonBlock className="h-80 rounded-2xl" />
       </div>
     );
   }
@@ -222,396 +134,331 @@ export default function AdminDashboard() {
   /* ─── Error ─── */
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-80 gap-5">
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
-          <AlertTriangle size={32} className="text-rose-500" />
+      <div className="max-w-md mx-auto my-16 bg-white rounded-2xl border border-slate-200 p-8 text-center">
+        <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 border border-red-100 flex items-center justify-center mx-auto mb-4">
+          <AlertTriangle size={24} aria-hidden="true" />
         </div>
-        <div className="text-center">
-          <p className="text-base font-bold text-slate-700 mb-1">
-            ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้
-          </p>
-          <p className="text-sm text-slate-400">
-            กรุณาตรวจสอบการเชื่อมต่อและลองใหม่อีกครั้ง
-          </p>
-        </div>
+        <h1 className="text-base font-semibold text-slate-900">
+          ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้
+        </h1>
+        <p className="text-sm text-slate-500 mt-1.5">
+          ตรวจสอบการเชื่อมต่อเครือข่าย แล้วกดรีเฟรชเพื่อโหลดข้อมูลอีกครั้ง
+        </p>
         <button
-          onClick={() => setRetryKey((k) => k + 1)}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:scale-105 active:scale-95"
-          style={{
-            background: "linear-gradient(135deg, #7c3aed, #4f46e5)",
-            boxShadow: "0 4px 12px -2px rgba(124,58,237,0.4)",
-          }}
+          type="button"
+          onClick={() => fetchDashboard(false)}
+          className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#8A1ABA] hover:bg-[#73149c] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA] focus-visible:ring-offset-2 cursor-pointer"
         >
-          <RefreshCw size={15} />
-          ลองใหม่
+          <RefreshCw size={15} aria-hidden="true" />
+          ลองใหม่อีกครั้ง
         </button>
       </div>
     );
   }
 
+  const overdueCount = stats.overdueAlerts || 0;
+  const pendingCount = stats.pendingRepairs || 0;
+
   return (
-    <div className="space-y-6 pb-12">
-      {/* ── Command Banner ── */}
-      <div
-        className="relative overflow-hidden rounded-3xl text-white p-6 md:p-8"
-        style={{
-            background: 'linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #3b0764 100%)',
-            boxShadow: '0 10px 30px -10px rgba(124,58,237,0.4)',
-            animation: 'fadeSlideUp 0.45s ease-out both',
-        }}
+    <div className="max-w-7xl mx-auto space-y-6 pb-10">
+      {/* ── Page Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight text-balance">
+            ภาพรวมระบบซ่อมบำรุง
+          </h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            ติดตามสถานะความพร้อมยานพาหนะ คำร้องซ่อม และกำหนดการบำรุงรักษา
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => fetchDashboard(true)}
+          disabled={refreshing}
+          className="self-start sm:self-auto inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-slate-700 bg-white border border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA] focus-visible:ring-offset-2 disabled:opacity-60 cursor-pointer"
+        >
+          <RefreshCw
+            size={15}
+            className={clsx(refreshing && "animate-spin motion-reduce:animate-none")}
+            aria-hidden="true"
+          />
+          {refreshing ? "กำลังอัปเดต…" : "อัปเดตข้อมูล"}
+        </button>
+      </div>
+
+      {/* ── Unified Operational KPI Strip ── */}
+      <section
+        aria-label="ตัวชี้วัดหลักของระบบ"
+        className="bg-white rounded-2xl border border-purple-200/70 border-t-[3px] border-t-[#8A1ABA] shadow-xs overflow-hidden"
       >
-        {/* Ambient glow blobs */}
-        <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-20"
-            style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.8), transparent 70%)' }} />
-        <div className="pointer-events-none absolute -bottom-16 -left-10 w-56 h-56 rounded-full opacity-20"
-            style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.6), transparent 70%)' }} />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div>
-            <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-violet-100 border border-white/20 backdrop-blur-sm">
-              <ShieldCheck size={13} className="text-violet-300" />
-              <span>System Administrator</span>
-              <span className="relative flex h-2 w-2 ml-0.5">
-                <span
-                  className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"
-                  style={{ animation: "pulseRing 1.8s ease-out infinite" }}
-                />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200/80">
+          {/* KPI 1: Ready Vehicles */}
+          <Link
+            to="/admin/vehicles"
+            className="group p-5 flex flex-col justify-between hover:bg-slate-50/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8A1ABA]"
+          >
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-medium flex items-center gap-1.5">
+                <Car size={15} className="text-emerald-600" aria-hidden="true" />
+                รถพร้อมใช้งาน
               </span>
-              <span className="text-emerald-300 ml-0.5">Live</span>
+              <ArrowUpRight
+                size={15}
+                className="text-slate-300 group-hover:text-slate-600 transition-colors"
+                aria-hidden="true"
+              />
             </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
-              ภาพรวมระบบ (Dashboard)
-            </h1>
-            <p className="text-sm text-violet-200 mt-1.5 max-w-lg">
-              สรุปสถานะรถยนต์ คำร้องซ่อม และแจ้งเตือนบำรุงรักษาทั้งหมดในระบบ
+            <div className="mt-3 flex items-baseline gap-1.5">
+              <span className="text-2xl md:text-3xl font-bold text-slate-900 tabular-nums tracking-tight">
+                {(stats.readyVehicles || 0).toLocaleString("th-TH")}
+              </span>
+              <span className="text-sm text-slate-500">คัน</span>
+            </div>
+            <p className="text-xs text-emerald-700 font-medium mt-2">
+              สถานะปกติ พร้อมออกปฏิบัติงาน
+            </p>
+          </Link>
+
+          {/* KPI 2: Pending Repairs */}
+          <Link
+            to="/admin/repairs"
+            className="group p-5 flex flex-col justify-between hover:bg-slate-50/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8A1ABA] sm:border-t-0 lg:border-t-0"
+          >
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-medium flex items-center gap-1.5">
+                <ClipboardList size={15} className="text-[#8A1ABA]" aria-hidden="true" />
+                คำร้องซ่อมรออนุมัติ
+              </span>
+              <ArrowUpRight
+                size={15}
+                className="text-slate-300 group-hover:text-slate-600 transition-colors"
+                aria-hidden="true"
+              />
+            </div>
+            <div className="mt-3 flex items-baseline gap-1.5">
+              <span className="text-2xl md:text-3xl font-bold text-slate-900 tabular-nums tracking-tight">
+                {pendingCount.toLocaleString("th-TH")}
+              </span>
+              <span className="text-sm text-slate-500">รายการ</span>
+            </div>
+            <p
+              className={clsx(
+                "text-xs font-medium mt-2",
+                pendingCount > 0 ? "text-[#8A1ABA]" : "text-slate-500",
+              )}
+            >
+              {pendingCount > 0 ? "รอตรวจสอบและดำเนินการ" : "ไม่มีรายการค้างอนุมัติ"}
+            </p>
+          </Link>
+
+          {/* KPI 3: Overdue Alerts */}
+          <Link
+            to="/admin/alerts"
+            className="group p-5 flex flex-col justify-between hover:bg-slate-50/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8A1ABA] sm:border-t lg:border-t-0"
+          >
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-medium flex items-center gap-1.5">
+                <Bell
+                  size={15}
+                  className={overdueCount > 0 ? "text-red-600" : "text-slate-400"}
+                  aria-hidden="true"
+                />
+                แจ้งเตือนครบระยะ
+              </span>
+              <ArrowUpRight
+                size={15}
+                className="text-slate-300 group-hover:text-slate-600 transition-colors"
+                aria-hidden="true"
+              />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span
+                className={clsx(
+                  "text-2xl md:text-3xl font-bold tabular-nums tracking-tight",
+                  overdueCount > 0 ? "text-red-600" : "text-slate-900",
+                )}
+              >
+                {overdueCount.toLocaleString("th-TH")}
+              </span>
+              <span className="text-sm text-slate-500">รายการ</span>
+            </div>
+            <p
+              className={clsx(
+                "text-xs font-medium mt-2 flex items-center gap-1",
+                overdueCount > 0 ? "text-red-600" : "text-emerald-700",
+              )}
+            >
+              {overdueCount > 0 ? (
+                <>
+                  <AlertTriangle size={13} aria-hidden="true" />
+                  เลยกำหนด ต้องเร่งดำเนินการ
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={13} aria-hidden="true" />
+                  ไม่มีรายการเลยกำหนด
+                </>
+              )}
+            </p>
+          </Link>
+
+          {/* KPI 4: Monthly Expense */}
+          <div className="p-5 flex flex-col justify-between bg-slate-50/40 sm:border-t lg:border-t-0">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-xs font-medium flex items-center gap-1.5">
+                <Banknote size={15} className="text-slate-600" aria-hidden="true" />
+                ค่าซ่อมบำรุงเดือนนี้
+              </span>
+            </div>
+            <div className="mt-3 flex items-baseline gap-1 min-w-0">
+              <span className="text-lg font-semibold text-slate-400">฿</span>
+              <span className="text-2xl md:text-3xl font-bold text-slate-900 tabular-nums tracking-tight truncate">
+                {currencyFormatter.format(stats.monthlyExpense || 0)}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              ยอดสะสมประจำเดือนปัจจุบัน
             </p>
           </div>
-          <div className="flex items-center gap-3 shrink-0 flex-wrap">
-            <div className="flex items-center gap-3 rounded-2xl px-5 py-4 bg-white/10 backdrop-blur-md border border-white/10">
-              <div className="p-2.5 rounded-xl bg-emerald-500/20">
-                <Car size={20} className="text-emerald-400" />
-              </div>
-              <div>
-                <div className="text-xs font-medium text-violet-200 mb-0.5">
-                  รถพร้อมใช้
-                </div>
-                <div className="text-2xl font-extrabold text-white leading-none">
-                  {stats.readyVehicles || 0}{" "}
-                  <span className="text-sm font-medium text-violet-200">
-                    คัน
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 rounded-2xl px-5 py-4 bg-white/10 backdrop-blur-md border border-white/10">
-              <div className="p-2.5 rounded-xl bg-amber-500/20">
-                <ClipboardList size={20} className="text-amber-400" />
-              </div>
-              <div>
-                <div className="text-xs font-medium text-violet-200 mb-0.5">
-                  รออนุมัติ
-                </div>
-                <div className="text-2xl font-extrabold text-white leading-none">
-                  {stats.pendingRepairs || 0}{" "}
-                  <span className="text-sm font-medium text-violet-200">
-                    รายการ
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
+      </section>
 
-        <div className="relative z-10 mt-5 pt-4 border-t border-white/10 flex flex-wrap items-center gap-6">
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-violet-200">
-              ค่าซ่อมเดือนนี้
-            </span>
-            <div className="text-xl font-extrabold text-white mt-0.5">
-              ฿
-              {(stats.monthlyExpense || 0).toLocaleString("th-TH", {
-                minimumFractionDigits: 2,
+      {/* ── Action Queues: Alerts & Repairs ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Maintenance Alerts Queue */}
+        <section className="bg-white rounded-2xl border border-purple-200/60 shadow-xs flex flex-col overflow-hidden">
+          <div className="px-5 py-4 border-b border-purple-100/80 bg-purple-50/40 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold text-slate-900 truncate">
+                  แจ้งเตือนบำรุงรักษา
+                </h2>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/70 tabular-nums">
+                  {maintenanceAlerts.length}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                รายการที่ยังไม่ได้ดำเนินการแก้ไข
+              </p>
+            </div>
+            <Link
+              to="/admin/alerts"
+              className="text-xs font-medium text-[#8A1ABA] hover:text-[#6b1291] shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-purple-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]"
+            >
+              ดูทั้งหมด
+              <ArrowUpRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
+
+          {maintenanceAlerts.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-12 px-4 text-center">
+              <CheckCircle2 size={28} className="text-emerald-500 mb-2" aria-hidden="true" />
+              <p className="text-sm font-medium text-slate-700">ไม่มีรายการแจ้งเตือนค้างอยู่</p>
+              <p className="text-xs text-slate-400 mt-0.5">รถทุกคันอยู่ในรอบบำรุงรักษาปกติ</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {maintenanceAlerts.map((alert) => {
+                const status =
+                  alert.status ||
+                  (alert.is_resolved
+                    ? "DONE"
+                    : (alert.vehicle?.current_mileage || 0) >= alert.next_service_mileage
+                      ? "OVERDUE"
+                      : "UPCOMING");
+                return (
+                  <button
+                    key={alert.alert_id}
+                    type="button"
+                    onClick={() =>
+                      navigate("/admin/alerts", { state: { openAlertId: alert.alert_id } })
+                    }
+                    className="w-full text-left px-5 py-3.5 hover:bg-slate-50 transition-colors flex items-center justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8A1ABA] cursor-pointer"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 truncate">
+                        {alert.vehicle?.license_plate || "ไม่ระบุทะเบียน"}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5 truncate">
+                        {alertTypeLabel[alert.alert_type] || alert.alert_type}
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      <AlertBadge status={status} />
+                    </div>
+                  </button>
+                );
               })}
             </div>
-          </div>
-          <div className="h-8 w-px bg-white/20" />
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-violet-200">
-              แจ้งเตือนครบระยะ
-            </span>
-            <div className="flex items-center gap-2 mt-0.5">
-              <div className="text-xl font-extrabold text-white">
-                {stats.overdueAlerts || 0}
+          )}
+        </section>
+
+        {/* Recent Repairs Queue */}
+        <section className="bg-white rounded-2xl border border-purple-200/60 shadow-xs flex flex-col overflow-hidden">
+          <div className="px-5 py-4 border-b border-purple-100/80 bg-purple-50/40 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold text-slate-900 truncate">
+                  คำร้องซ่อมที่ต้องดำเนินการ
+                </h2>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-[#8A1ABA] border border-purple-200/70 tabular-nums">
+                  {recentRepairs.length}
+                </span>
               </div>
-              {(stats.overdueAlerts || 0) > 0 ? (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
-                  <AlertTriangle size={12} /> ต้องดำเนินการ
-                </span>
-              ) : (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                  <CheckCircle2 size={12} /> ปกติ
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-
-      {/* ── Tables ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Maintenance Alerts */}
-        <div
-          className="bg-white rounded-3xl border border-slate-100 overflow-hidden"
-          style={{
-            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)",
-            animation: "fadeSlideUp 0.5s ease-out 0.28s both",
-          }}
-        >
-          <div
-            className="px-6 py-5 flex items-center justify-between"
-            style={{
-              borderBottom: "1px solid #f1f5f9",
-              background: "linear-gradient(to right, #faf5ff, #f8fafc)",
-            }}
-          >
-            <div>
-              <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-amber-100">
-                  <Bell size={14} className="text-amber-600" />
-                </span>
-                แจ้งเตือนบำรุงรักษา
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                รายการที่ยังไม่ได้แก้ไข
+              <p className="text-xs text-slate-500 mt-0.5">
+                รายการรอตรวจสอบและรออนุมัติล่าสุด
               </p>
             </div>
-            <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full">
-              {data?.maintenanceAlerts?.length || 0} รายการ
-            </span>
+            <Link
+              to="/admin/repairs"
+              className="text-xs font-medium text-[#8A1ABA] hover:text-[#6b1291] shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-purple-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A1ABA]"
+            >
+              ดูทั้งหมด
+              <ArrowUpRight size={14} aria-hidden="true" />
+            </Link>
           </div>
-          <div className="md:hidden divide-y divide-slate-50">
-            {!data?.maintenanceAlerts?.length && (
-              <div className="flex flex-col items-center py-10 gap-2">
-                <CheckCircle2 size={28} className="text-emerald-300" />
-                <p className="text-sm text-slate-400">ไม่มีการแจ้งเตือน</p>
-              </div>
-            )}
-            {data?.maintenanceAlerts?.map((alert) => (
-              <div
-                key={alert.alert_id}
-                onClick={() => navigate('/admin/alerts', { state: { openAlertId: alert.alert_id } })}
-                className="p-4 hover:bg-violet-50/30 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold text-slate-800 text-sm">
-                    {alert.vehicle?.license_plate}
-                  </p>
-                  <AlertBadge
-                    status={alert.status || (alert.is_resolved ? "DONE" : ((alert.vehicle?.current_mileage || 0) >= alert.next_service_mileage ? "OVERDUE" : "UPCOMING"))}
-                  />
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  {alertTypeLabel[alert.alert_type] || alert.alert_type}
-                </p>
-              </div>
-            ))}
-          </div>
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead
-                style={{
-                  background: "#faf5ff",
-                  borderBottom: "1px solid #f1f5f9",
-                }}
-              >
-                <tr>
-                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    ทะเบียนรถ
-                  </th>
-                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    ประเภท
-                  </th>
-                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    สถานะ
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {!data?.maintenanceAlerts?.length && (
-                  <tr>
-                    <td colSpan={3}>
-                      <div className="flex flex-col items-center py-10 gap-2">
-                        <CheckCircle2 size={28} className="text-emerald-300" />
-                        <p className="text-sm text-slate-400">
-                          ไม่มีการแจ้งเตือน
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                {data?.maintenanceAlerts?.map((alert) => (
-                  <tr
-                    key={alert.alert_id}
-                    onClick={() => navigate('/admin/alerts', { state: { openAlertId: alert.alert_id } })}
-                    className="transition-colors duration-150 cursor-pointer"
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "#faf5ff")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "")
-                    }
-                  >
-                    <td className="px-6 py-4 font-semibold text-slate-800">
-                      {alert.vehicle?.license_plate}
-                    </td>
-                    <td className="px-6 py-4 text-slate-500">
-                      {alertTypeLabel[alert.alert_type] || alert.alert_type}
-                    </td>
-                    <td className="px-6 py-4">
-                      <AlertBadge
-                        status={alert.status || (alert.is_resolved ? "DONE" : ((alert.vehicle?.current_mileage || 0) >= alert.next_service_mileage ? "OVERDUE" : "UPCOMING"))}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
-        {/* Recent Repairs */}
-        <div
-          className="bg-white rounded-3xl border border-slate-100 overflow-hidden"
-          style={{
-            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)",
-            animation: "fadeSlideUp 0.5s ease-out 0.36s both",
-          }}
-        >
-          <div
-            className="px-6 py-5 flex items-center justify-between"
-            style={{
-              borderBottom: "1px solid #f1f5f9",
-              background: "linear-gradient(to right, #faf5ff, #f8fafc)",
-            }}
-          >
-            <div>
-              <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-violet-100">
-                  <Wrench size={14} className="text-violet-600" />
-                </span>
-                คำร้องซ่อมที่ต้องดำเนินการ
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                รายการรอตรวจสอบและรออนุมัติ
-              </p>
+          {recentRepairs.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-12 px-4 text-center">
+              <Wrench size={26} className="text-slate-300 mb-2" aria-hidden="true" />
+              <p className="text-sm font-medium text-slate-700">ไม่มีคำร้องซ่อมรอดำเนินการ</p>
+              <p className="text-xs text-slate-400 mt-0.5">คำร้องทั้งหมดได้รับการจัดการเรียบร้อยแล้ว</p>
             </div>
-          </div>
-          <div className="md:hidden divide-y divide-slate-50">
-            {!data?.recentRepairs?.length && (
-              <div className="flex flex-col items-center py-10 gap-2">
-                <Zap size={28} className="text-slate-200" />
-                <p className="text-sm text-slate-400">ไม่มีคำร้องซ่อม</p>
-              </div>
-            )}
-            {data?.recentRepairs?.map((r) => (
-              <div
-                key={r.request_id}
-                onClick={() => navigate('/admin/repairs', { state: { openRequestId: r.request_id } })}
-                className="p-4 hover:bg-violet-50/30 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <p className="font-semibold text-slate-800 text-sm">
-                    {r.vehicle?.license_plate}
-                  </p>
-                  <StatusBadge status={r.status} />
-                </div>
-                <p className="text-xs text-slate-500 truncate">
-                  {r.description}
-                </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  {new Date(r.created_at).toLocaleDateString("th-TH", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "2-digit",
-                  })}
-                </p>
-              </div>
-            ))}
-          </div>
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead
-                style={{
-                  background: "#faf5ff",
-                  borderBottom: "1px solid #f1f5f9",
-                }}
-              >
-                <tr>
-                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    วันที่
-                  </th>
-                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    ทะเบียน / ปัญหา
-                  </th>
-                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    สถานะ
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {!data?.recentRepairs?.length && (
-                  <tr>
-                    <td colSpan={3}>
-                      <div className="flex flex-col items-center py-10 gap-2">
-                        <Zap size={28} className="text-slate-200" />
-                        <p className="text-sm text-slate-400">
-                          ไม่มีคำร้องซ่อม
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                {data?.recentRepairs?.map((r) => (
-                  <tr
-                    key={r.request_id}
-                    onClick={() => navigate('/admin/repairs', { state: { openRequestId: r.request_id } })}
-                    className="transition-colors duration-150 cursor-pointer"
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "#faf5ff")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "")
-                    }
-                  >
-                    <td className="px-6 py-4 text-slate-400 text-xs whitespace-nowrap">
-                      {new Date(r.created_at).toLocaleDateString("th-TH", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "2-digit",
-                      })}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-800">
-                        {r.vehicle?.license_plate}
-                      </div>
-                      <div className="text-xs text-slate-400 mt-0.5 max-w-55 truncate">
-                        {r.description}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={r.status} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {recentRepairs.map((r) => (
+                <button
+                  key={r.request_id}
+                  type="button"
+                  onClick={() =>
+                    navigate("/admin/repairs", { state: { openRequestId: r.request_id } })
+                  }
+                  className="w-full text-left px-5 py-3.5 hover:bg-slate-50 transition-colors flex items-center justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8A1ABA] cursor-pointer"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-900 truncate">
+                        {r.vehicle?.license_plate || "ไม่ระบุทะเบียน"}
+                      </span>
+                      <span className="text-xs text-slate-400 shrink-0 tabular-nums">
+                        {dateFormatter.format(new Date(r.created_at))}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">
+                      {r.description || "ไม่ได้ระบุรายละเอียด"}
+                    </p>
+                  </div>
+                  <div className="shrink-0">
+                    <StatusBadge status={r.status} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
-      {/* ── Monthly Forecast ── */}
+      {/* ── Monthly Maintenance Forecast Table ── */}
       <MaintenanceForecastCard />
     </div>
   );

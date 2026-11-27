@@ -1,15 +1,42 @@
 @import "tailwindcss";
 
+:root {
+  --brand-primary: #8A1ABA;
+  --brand-primary-hover: #73149C;
+  --surface-canvas: #F5F1FA;
+}
+
 * {
   box-sizing: border-box;
 }
 
+html {
+  background-color: var(--surface-canvas);
+  color: #0f172a;
+}
+
+@media (pointer: fine) {
+  html {
+    overscroll-behavior: none;
+  }
+}
+
 body {
-  font-family: "Prompt", sans-serif;
+  font-family: "Prompt", system-ui, -apple-system, sans-serif;
   margin: 0;
   padding: 0;
+  background-color: var(--surface-canvas);
+  color: #0f172a;
   -webkit-tap-highlight-color: transparent;
   font-variant-numeric: tabular-nums;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
 }
 
 /* Scrollbar styling */
@@ -18,11 +45,11 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 3px;
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
@@ -36,20 +63,11 @@ body {
   overflow: hidden;
 }
 
-/* Responsive touch targets and styling */
+/* Responsive touch targets */
 @media (max-width: 768px) {
   .touch-target {
     min-height: 44px;
     min-width: 44px;
-  }
-
-  /* Hide scrollbar for mobile/responsive views */
-  ::-webkit-scrollbar {
-    display: none;
-  }
-  * {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
   }
 }
 
@@ -60,5 +78,5 @@ input[type="number"]::-webkit-outer-spin-button {
   margin: 0;
 }
 input[type="number"] {
-  -moz-appearance: textfield; /* Firefox */
+  -moz-appearance: textfield;
 }
